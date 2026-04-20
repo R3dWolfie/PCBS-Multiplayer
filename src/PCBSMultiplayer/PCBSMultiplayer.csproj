@@ -15,14 +15,9 @@
     <PackageReference Include="UnityEngine.Modules" Version="2018.4.36" IncludeAssets="compile" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Steamworks.NET">
-      <HintPath>..\..\libs\Steamworks.NET.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
     <Reference Include="Assembly-CSharp-firstpass">
       <HintPath>$(PCBSGameDir)/Assembly-CSharp-firstpass.dll</HintPath>
       <Private>false</Private>
-      <Aliases>firstpass</Aliases>
     </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>$(PCBSGameDir)/Assembly-CSharp.dll</HintPath>
