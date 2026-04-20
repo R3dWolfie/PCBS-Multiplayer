@@ -28,7 +28,10 @@ public static class Serializer
 
     private static Type TagToType(TypeTag tag) => tag switch
     {
+        TypeTag.Hello => typeof(Hello),
+        TypeTag.Welcome => typeof(Welcome),
         TypeTag.Heartbeat => typeof(Heartbeat),
+        TypeTag.Bye => typeof(Bye),
         _ => throw new NotSupportedException($"no type mapping for tag {tag}")
     };
 }
