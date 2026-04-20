@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using MessagePack;
+using PCBSMultiplayer.State;
 
 namespace PCBSMultiplayer.Net.Messages;
 
@@ -21,4 +23,13 @@ public sealed class TimeChanged : IMessage
 {
     [Key(0)] public int NewDayIndex { get; set; }
     [IgnoreMember] public TypeTag Tag => TypeTag.TimeChanged;
+}
+
+[MessagePackObject]
+public sealed class JobBoardDelta : IMessage
+{
+    [Key(0)] public List<SnapshotBuilder.JobDto> Available { get; set; } = new();
+    [Key(1)] public List<SnapshotBuilder.JobDto> Claimed { get; set; } = new();
+    [Key(2)] public List<SnapshotBuilder.JobDto> Completed { get; set; } = new();
+    [IgnoreMember] public TypeTag Tag => TypeTag.JobBoardDelta;
 }

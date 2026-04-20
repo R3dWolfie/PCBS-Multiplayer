@@ -12,6 +12,7 @@ public static class DeltaApplier
             case MoneyChanged m: state.Money = m.NewTotal; break;
             case XPChanged x: state.XP = x.NewTotal; break;
             case TimeChanged t: state.DayIndex = t.NewDayIndex; break;
+            case JobBoardDelta d: state.JobBoard.ReplaceAll(d.Available, d.Claimed, d.Completed); break;
             default: throw new ArgumentException($"unknown delta {delta.GetType().Name}");
         }
     }

@@ -30,4 +30,20 @@ public class DeltaApplierTests
         DeltaApplier.Apply(w, new TimeChanged { NewDayIndex = 5 });
         w.DayIndex.Should().Be(5);
     }
+
+    [Fact]
+    public void JobBoardDelta_replaces_board_contents()
+    {
+        var w = new WorldState();
+        w.JobBoard.AddAvailable(new Job { Id = "old" });
+        DeltaApplier.Apply(w, new JobBoardDelta
+        {
+            Available = new() { new SnapshotBuilder.JobDto { Id = "new-1" } },
+            Claimed = new() { new SnapshotBuilder.JobDto { Id = "new-2", ClaimedBySlot = 1 } },
+            Completed = new()
+        });
+        w.JobBoard.Available.Should().ContainSingle(j => j.Id == "new-1");
+        w.JobBoard.Claimed.Should().ContainKey("new-2");
+        w.JobBoard.Claimed["new-2"].ClaimedBySlot.Should().Be(1);
+    }
 }

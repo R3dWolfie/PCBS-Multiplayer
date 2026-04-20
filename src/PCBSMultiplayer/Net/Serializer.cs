@@ -35,6 +35,7 @@ public static class Serializer
         TypeTag.MoneyChanged => typeof(MoneyChanged),
         TypeTag.XPChanged => typeof(XPChanged),
         TypeTag.TimeChanged => typeof(TimeChanged),
+        TypeTag.JobBoardDelta => typeof(JobBoardDelta),
         _ => throw new NotSupportedException($"no type mapping for tag {tag}")
     };
 }

@@ -46,4 +46,17 @@ public sealed class JobBoardState
         _claimed.Remove(jobId);
         _completed.Add(job);
     }
+
+    public void ReplaceAll(
+        List<SnapshotBuilder.JobDto> available,
+        List<SnapshotBuilder.JobDto> claimed,
+        List<SnapshotBuilder.JobDto> completed)
+    {
+        _available.Clear();
+        _claimed.Clear();
+        _completed.Clear();
+        foreach (var j in available) _available.Add(new Job { Id = j.Id });
+        foreach (var j in claimed) _claimed[j.Id] = new Job { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot };
+        foreach (var j in completed) _completed.Add(new Job { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
+    }
 }
