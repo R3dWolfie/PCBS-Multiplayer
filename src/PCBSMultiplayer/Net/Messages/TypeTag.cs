@@ -22,5 +22,10 @@ public enum TypeTag : byte
     TestRan = 51,
     JobCompleted = 52,
     BenchReleased = 53,
-    ChatMessage = 60
+    ChatMessage = 60,
+    LobbyState = 70,
+    StartGame = 71,
+    SaveTransferBegin = 80,
+    SaveChunk = 81,
+    SaveTransferEnd = 82
 }

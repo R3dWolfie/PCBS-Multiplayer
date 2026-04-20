@@ -72,6 +72,37 @@ public static class Serializer
                 w.Write(x.Accepted);
                 w.Write(x.DenyReason);
                 break;
+            case LobbyState x:
+                w.Write(x.SelectedSaveName);
+                w.Write(x.SelectedSceneName);
+                w.Write(x.Players.Count);
+                foreach (var p in x.Players)
+                {
+                    w.Write(p.SteamId);
+                    w.Write(p.DisplayName ?? "");
+                    w.Write(p.IsHost);
+                }
+                break;
+            case StartGame x:
+                w.Write(x.SaveName);
+                w.Write(x.SceneName);
+                break;
+            case SaveTransferBegin x:
+                w.Write(x.SaveName);
+                w.Write(x.SceneName);
+                w.Write(x.TotalBytes);
+                w.Write(x.ChunkCount);
+                w.Write(x.ChunkSize);
+                w.Write(x.Crc32);
+                break;
+            case SaveChunk x:
+                w.Write(x.Index);
+                w.Write(x.Payload.Length);
+                w.Write(x.Payload);
+                break;
+            case SaveTransferEnd:
+                // empty body
+                break;
             default: throw new NotSupportedException($"no writer for {m.GetType()}");
         }
     }
@@ -120,14 +151,55 @@ public static class Serializer
             Accepted = r.ReadBoolean(),
             DenyReason = r.ReadString()
         },
+        TypeTag.LobbyState => ReadLobbyState(r),
+        TypeTag.StartGame => new StartGame
+        {
+            SaveName = r.ReadString(),
+            SceneName = r.ReadString()
+        },
+        TypeTag.SaveTransferBegin => new SaveTransferBegin
+        {
+            SaveName = r.ReadString(),
+            SceneName = r.ReadString(),
+            TotalBytes = r.ReadInt32(),
+            ChunkCount = r.ReadInt32(),
+            ChunkSize = r.ReadInt32(),
+            Crc32 = r.ReadUInt32(),
+        },
+        TypeTag.SaveChunk => ReadSaveChunk(r),
+        TypeTag.SaveTransferEnd => new SaveTransferEnd(),
         _ => throw new NotSupportedException($"no reader for tag {tag}")
     };
+
+    private static LobbyState ReadLobbyState(BinaryReader r)
+    {
+        var selected = r.ReadString();
+        var scene = r.ReadString();
+        var n = r.ReadInt32();
+        var list = new List<LobbyPlayer>(n);
+        for (int i = 0; i < n; i++)
+        {
+            var id = r.ReadUInt64();
+            var name = r.ReadString();
+            var host = r.ReadBoolean();
+            list.Add(new LobbyPlayer { SteamId = id, DisplayName = name, IsHost = host });
+        }
+        return new LobbyState { Players = list, SelectedSaveName = selected, SelectedSceneName = scene };
+    }
 
     private static Welcome ReadWelcome(BinaryReader r)
     {
         var slot = r.ReadInt32();
         var len = r.ReadInt32();
         return new Welcome { AssignedSlot = slot, SnapshotBytes = r.ReadBytes(len) };
+    }
+
+    private static SaveChunk ReadSaveChunk(BinaryReader r)
+    {
+        int idx = r.ReadInt32();
+        int len = r.ReadInt32();
+        byte[] payload = r.ReadBytes(len);
+        return new SaveChunk { Index = idx, Payload = payload };
     }
 
     private static void WriteJobList(BinaryWriter w, List<SnapshotBuilder.JobDto> list)
