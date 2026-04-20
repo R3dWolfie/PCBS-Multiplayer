@@ -32,6 +32,9 @@ public static class Serializer
         TypeTag.Welcome => typeof(Welcome),
         TypeTag.Heartbeat => typeof(Heartbeat),
         TypeTag.Bye => typeof(Bye),
+        TypeTag.MoneyChanged => typeof(MoneyChanged),
+        TypeTag.XPChanged => typeof(XPChanged),
+        TypeTag.TimeChanged => typeof(TimeChanged),
         _ => throw new NotSupportedException($"no type mapping for tag {tag}")
     };
 }
