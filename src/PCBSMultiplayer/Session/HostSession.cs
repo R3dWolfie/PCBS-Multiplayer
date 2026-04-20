@@ -189,18 +189,33 @@ public sealed class HostSession
 
         var packer = new SaveSyncPacker(bytes, saveName, sceneName);
 
+        Log.LogInfo("BeginSaveTransfer: save=\"" + saveName + "\" bytes=" + bytes.Length + " chunks=" + packer.Chunks.Count);
+
         var beginFrame = Serializer.Pack(packer.Begin);
-        foreach (var t in _transports.Values) t.Send(beginFrame);
+        foreach (var kv in _transports)
+        {
+            try { kv.Value.Send(beginFrame); }
+            catch (Exception ex) { Log.LogWarning("Send begin to slot " + kv.Key + " failed: " + ex.Message); }
+        }
 
         for (int i = 0; i < packer.Chunks.Count; i++)
         {
             var frame = Serializer.Pack(packer.Chunks[i]);
-            foreach (var t in _transports.Values) t.Send(frame);
+            foreach (var kv in _transports)
+            {
+                try { kv.Value.Send(frame); }
+                catch (Exception ex) { Log.LogWarning("Send chunk " + i + " to slot " + kv.Key + " failed: " + ex.Message); }
+            }
         }
 
         var endFrame = Serializer.Pack(packer.End);
-        foreach (var t in _transports.Values) t.Send(endFrame);
+        foreach (var kv in _transports)
+        {
+            try { kv.Value.Send(endFrame); }
+            catch (Exception ex) { Log.LogWarning("Send end to slot " + kv.Key + " failed: " + ex.Message); }
+        }
 
+        Log.LogInfo("BeginSaveTransfer: complete");
         return true;
     }
 }

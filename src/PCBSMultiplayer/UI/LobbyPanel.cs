@@ -247,8 +247,12 @@ public sealed class LobbyPanel : MonoBehaviour
         }
 
         // now broadcast the scene-start signal — clients load *after* SaveTransferEnd arrives
+        var startFrame = Serializer.Pack(new StartGame { SaveName = _selectedSaveName, SceneName = _selectedSceneName });
         foreach (var t in mgr.Host.Transports)
-            t.Send(Serializer.Pack(new StartGame { SaveName = _selectedSaveName, SceneName = _selectedSceneName }));
+        {
+            try { t.Send(startFrame); }
+            catch (Exception ex) { if (Log != null) Log.LogWarning("Send StartGame to a client failed: " + ex.Message); }
+        }
 
         // host loads its own save locally (unchanged — client receives bytes in parallel)
         TryLoadLocally(_selectedSaveName, _selectedSceneName);
