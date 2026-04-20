@@ -45,13 +45,30 @@ public sealed class HostSession
 
     private void OnHello(ITransport transport, Hello hello)
     {
-        if (_clients.Count >= MaxClients) { transport.Send(Serializer.Pack(new Bye { Reason = "lobby_full" })); return; }
         if (hello.ModVersion != ModVersion) { transport.Send(Serializer.Pack(new Bye { Reason = "version_mismatch" })); return; }
 
-        var slot = _nextSlot++;
-        _clients[slot] = new ClientInfo { Slot = slot, SteamId = hello.SteamId, DisplayName = hello.DisplayName };
-        _transports[slot] = transport;
-        _slotByTransport[transport] = slot;
+        int slot = -1;
+        foreach (var kv in _clients)
+            if (kv.Value.SteamId == hello.SteamId && hello.SteamId != 0 && _inGrace.Contains(kv.Key))
+            { slot = kv.Key; break; }
+
+        if (slot != -1)
+        {
+            _grace.Cancel($"client-{slot}");
+            _inGrace.Remove(slot);
+            if (_transports.TryGetValue(slot, out var oldT)) _slotByTransport.Remove(oldT);
+            _transports[slot] = transport;
+            _slotByTransport[transport] = slot;
+            _clients[slot].DisplayName = hello.DisplayName;
+        }
+        else
+        {
+            if (_clients.Count >= MaxClients) { transport.Send(Serializer.Pack(new Bye { Reason = "lobby_full" })); return; }
+            slot = _nextSlot++;
+            _clients[slot] = new ClientInfo { Slot = slot, SteamId = hello.SteamId, DisplayName = hello.DisplayName };
+            _transports[slot] = transport;
+            _slotByTransport[transport] = slot;
+        }
 
         var snapshot = SnapshotBuilder.Serialize(_mgr.World);
         transport.Send(Serializer.Pack(new Welcome { AssignedSlot = slot, SnapshotBytes = snapshot }));
