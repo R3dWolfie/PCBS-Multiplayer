@@ -1,3 +1,11 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/pcbs-m-social-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/pcbs-m-social-light.png">
+    <img alt="PCBS Multiplayer" src="assets/pcbs-m-social-dark.png" width="640">
+  </picture>
+</p>
+
 # PCBS Multiplayer Mod
 
 Co-op multiplayer mod for **PC Building Simulator** (2018, Steam AppID 621060).
