@@ -37,7 +37,7 @@ public sealed class SteamTransport : ITransport
     public bool TryReceive(out byte[] payload)
     {
         if (_inbox.Count > 0) { payload = _inbox.Dequeue(); return true; }
-        payload = Array.Empty<byte>();
+        payload = new byte[0];
         return false;
     }
 

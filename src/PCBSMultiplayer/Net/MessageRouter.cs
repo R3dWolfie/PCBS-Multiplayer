@@ -21,6 +21,7 @@ public sealed class MessageRouter
             if (_handlers.TryGetValue(msg.GetType(), out var h)) h(msg);
         }
         catch (NotSupportedException) { /* unknown tag — drop */ }
-        catch (MessagePack.MessagePackSerializationException) { /* malformed — drop */ }
+        catch (System.IO.EndOfStreamException) { /* malformed — drop */ }
+        catch (System.IO.IOException) { /* malformed — drop */ }
     }
 }

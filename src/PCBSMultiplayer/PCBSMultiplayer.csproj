@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>net46</TargetFramework>
     <LangVersion>10.0</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>PCBSMultiplayer</RootNamespace>
@@ -11,7 +11,7 @@
     <PackageReference Include="BepInEx.Core" Version="5.4.21" />
     <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.2" PrivateAssets="all" />
     <PackageReference Include="HarmonyX" Version="2.7.0" />
-    <PackageReference Include="MessagePack" Version="2.5.192" />
+    <PackageReference Include="System.ValueTuple" Version="4.5.0" />
     <PackageReference Include="UnityEngine.Modules" Version="2018.4.36" IncludeAssets="compile" />
   </ItemGroup>
   <ItemGroup>

@@ -1,11 +1,12 @@
 using System;
-using System.Collections.Concurrent;
+using System.Collections.Generic;
 
 namespace PCBSMultiplayer.Net;
 
 public sealed class InMemoryTransport : ITransport
 {
-    private readonly ConcurrentQueue<byte[]> _inbox = new();
+    private readonly Queue<byte[]> _inbox = new();
+    private readonly object _gate = new();
     private InMemoryTransport? _peer;
     private bool _connected = true;
 
@@ -14,13 +15,16 @@ public sealed class InMemoryTransport : ITransport
     public void Send(byte[] payload)
     {
         if (!_connected || _peer == null) throw new InvalidOperationException("transport disconnected");
-        _peer._inbox.Enqueue(payload);
+        lock (_peer._gate) _peer._inbox.Enqueue(payload);
     }
 
     public bool TryReceive(out byte[] payload)
     {
-        if (_inbox.TryDequeue(out var p)) { payload = p; return true; }
-        payload = Array.Empty<byte>();
+        lock (_gate)
+        {
+            if (_inbox.Count > 0) { payload = _inbox.Dequeue(); return true; }
+        }
+        payload = new byte[0];
         return false;
     }
 
