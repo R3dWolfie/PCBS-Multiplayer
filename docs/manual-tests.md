@@ -169,3 +169,12 @@ First deploy used `GUI.Label` defaults at (10, 10) — nearly invisible at 4K (~
    - No exceptions, no desync warnings, no freezes for ~5 min of normal play.
    - Panic hotkey F7-hold still works on either side.
 4. **Closing criteria:** both sides conclude the session via main menu "Quit to main menu" without errors.
+
+---
+
+## P3.B-T1 — Recon gate (Plan 3 save system)
+
+**Date:** 2026-04-21
+**Result:** GO with caveats
+**Summary:** `SaveLoadSystem.s_saveDir` is `public static string` — no publicizer or reflection needed; initialized to `"Saves/<steamID64>"` by `SteamController.SetSaveDirForUser` on Awake. `LoadGameFromDir` takes a bare `name.binary` filename and prepends `s_saveDir + "/"`. The **existing-save (Continue) path is GO**: bytes are on disk before any transfer call. The **new-career (StartNewGame) path is NO-GO for 0.3**: `StartNewGame` performs no disk write whatsoever — the first save only exists after the user manually saves in-game — so `BeginSaveTransfer` would read nothing on a fresh session.
+**Follow-up (caveat):** P3 scope for 0.3 must be restricted to **existing-save path only** (host picks "Continue", not "New Game"). `BeginSaveTransfer` should be triggered from the `ContinueCareer` code path. New-game multiplayer requires a save-on-demand hook (`StartNewGame` → `CreateSaveGame` post scene-load) and is deferred to a later milestone.
