@@ -60,4 +60,29 @@ public class SerializerTests
         tag.Should().Be(TypeTag.Bye);
         obj.Should().BeOfType<Bye>().Which.Reason.Should().Be("version_mismatch");
     }
+
+    [Fact]
+    public void ClaimJobRequest_round_trips()
+    {
+        var orig = new ClaimJobRequest { JobId = "job-7", RequestId = "req-abc" };
+        var bytes = Serializer.Pack(orig);
+        var (tag, obj) = Serializer.Unpack(bytes);
+        tag.Should().Be(TypeTag.ClaimJobRequest);
+        var r = obj.Should().BeOfType<ClaimJobRequest>().Subject;
+        r.JobId.Should().Be("job-7");
+        r.RequestId.Should().Be("req-abc");
+    }
+
+    [Fact]
+    public void SpendMoneyRequest_round_trips()
+    {
+        var orig = new SpendMoneyRequest { Amount = 500, Reason = "cpu purchase", RequestId = "req-xyz" };
+        var bytes = Serializer.Pack(orig);
+        var (tag, obj) = Serializer.Unpack(bytes);
+        tag.Should().Be(TypeTag.SpendMoneyRequest);
+        var r = obj.Should().BeOfType<SpendMoneyRequest>().Subject;
+        r.Amount.Should().Be(500);
+        r.Reason.Should().Be("cpu purchase");
+        r.RequestId.Should().Be("req-xyz");
+    }
 }
