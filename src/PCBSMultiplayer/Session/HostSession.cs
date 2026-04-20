@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using PCBSMultiplayer.Net;
 using PCBSMultiplayer.Net.Messages;
@@ -23,6 +24,8 @@ public sealed class HostSession
     public Dictionary<int, ClientInfo> Clients => _clients;
     public GraceTimer GraceTimer => _grace;
     public ICollection<ITransport> Transports => _transports.Values;
+
+    public event Action<int> ClientAccepted;
 
     internal void AttachExistingClient(int slot, ITransport transport)
     {
@@ -79,6 +82,8 @@ public sealed class HostSession
 
         var snapshot = SnapshotBuilder.Serialize(_mgr.World);
         transport.Send(Serializer.Pack(new Welcome { AssignedSlot = slot, SnapshotBytes = snapshot }));
+        var handler = ClientAccepted;
+        if (handler != null) handler(slot);
     }
 
     private void OnClaimJob(ITransport transport, ClaimJobRequest req)

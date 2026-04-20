@@ -46,6 +46,7 @@ public static class SessionLifecycle
         var mgr = new SessionManager(SessionRole.Host, new NullTransport());
         SessionManager.Current = mgr;
         mgr.IsLive = true;
+        mgr.Host.ClientAccepted += OnClientAccepted;
         _lobby.RegisterMemberJoinHandler(OnPeerJoined);
         LobbyPanel.ShowForHost();
         Log.LogInfo("Host session started; lobby " + lobbyId + "; lobby panel opened.");
@@ -57,8 +58,13 @@ public static class SessionLifecycle
         if (mgr == null || mgr.Role != SessionRole.Host) return;
         var transport = new SteamTransport(peerId);
         mgr.Host.AttachClient(transport);
-        LobbyPanel.RebroadcastState();
         Log.LogInfo("Peer joined lobby: " + peerId);
+    }
+
+    private static void OnClientAccepted(int slot)
+    {
+        LobbyPanel.RebroadcastState();
+        Log.LogInfo("Client accepted (slot " + slot + "); LobbyState rebroadcast.");
     }
 
     public static void JoinPendingInvite()
