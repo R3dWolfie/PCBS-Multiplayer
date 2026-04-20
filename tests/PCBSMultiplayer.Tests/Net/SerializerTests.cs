@@ -85,4 +85,29 @@ public class SerializerTests
         r.Reason.Should().Be("cpu purchase");
         r.RequestId.Should().Be("req-xyz");
     }
+
+    [Fact]
+    public void ClaimJobResult_round_trips()
+    {
+        var orig = new ClaimJobResult { RequestId = "r1", Accepted = false, DenyReason = "already_claimed" };
+        var bytes = Serializer.Pack(orig);
+        var (tag, obj) = Serializer.Unpack(bytes);
+        tag.Should().Be(TypeTag.ClaimJobResult);
+        var r = obj.Should().BeOfType<ClaimJobResult>().Subject;
+        r.RequestId.Should().Be("r1");
+        r.Accepted.Should().BeFalse();
+        r.DenyReason.Should().Be("already_claimed");
+    }
+
+    [Fact]
+    public void SpendMoneyResult_round_trips()
+    {
+        var orig = new SpendMoneyResult { RequestId = "r2", Accepted = true, DenyReason = "" };
+        var bytes = Serializer.Pack(orig);
+        var (tag, obj) = Serializer.Unpack(bytes);
+        tag.Should().Be(TypeTag.SpendMoneyResult);
+        var r = obj.Should().BeOfType<SpendMoneyResult>().Subject;
+        r.RequestId.Should().Be("r2");
+        r.Accepted.Should().BeTrue();
+    }
 }

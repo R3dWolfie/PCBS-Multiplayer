@@ -38,6 +38,8 @@ public static class Serializer
         TypeTag.JobBoardDelta => typeof(JobBoardDelta),
         TypeTag.ClaimJobRequest => typeof(ClaimJobRequest),
         TypeTag.SpendMoneyRequest => typeof(SpendMoneyRequest),
+        TypeTag.ClaimJobResult => typeof(ClaimJobResult),
+        TypeTag.SpendMoneyResult => typeof(SpendMoneyResult),
         _ => throw new NotSupportedException($"no type mapping for tag {tag}")
     };
 }
