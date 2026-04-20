@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using PCBSMultiplayer.Net;
 using PCBSMultiplayer.Net.Messages;
 using PCBSMultiplayer.State;
@@ -22,6 +23,7 @@ public sealed class HostSession
         _mgr.LocalSlot = 0;
         _mgr.IsLive = true;
         _mgr.Router.On<Hello>(OnHello);
+        _mgr.Router.On<ClaimJobRequest>(OnClaimJob);
     }
 
     private void OnHello(Hello hello)
@@ -39,6 +41,35 @@ public sealed class HostSession
     private void Reject(string reason)
     {
         _mgr.Transport.Send(Serializer.Pack(new Bye { Reason = reason }));
+    }
+
+    private void OnClaimJob(ClaimJobRequest req)
+    {
+        var ok = _mgr.World.JobBoard.TryClaim(req.JobId, slot: InferRequestingSlot());
+        _mgr.Transport.Send(Serializer.Pack(new ClaimJobResult
+        {
+            RequestId = req.RequestId,
+            Accepted = ok,
+            DenyReason = ok ? "" : "already_claimed_or_missing"
+        }));
+        if (ok) BroadcastJobBoardDelta();
+    }
+
+    private int InferRequestingSlot()
+    {
+        foreach (var s in _clients.Keys) return s;
+        return -1;
+    }
+
+    private void BroadcastJobBoardDelta()
+    {
+        var delta = new JobBoardDelta
+        {
+            Available = _mgr.World.JobBoard.Available.Select(j => new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot }).ToList(),
+            Claimed = _mgr.World.JobBoard.Claimed.Values.Select(j => new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot }).ToList(),
+            Completed = _mgr.World.JobBoard.Completed.Select(j => new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot }).ToList()
+        };
+        _mgr.Transport.Send(Serializer.Pack(delta));
     }
 }
 

@@ -14,11 +14,15 @@ public sealed class ClientSession
     public ulong SteamId { get; set; }
     public string? DisconnectReason { get; private set; }
 
+    public ClaimJobResult? LastClaimResult { get; private set; }
+
     public ClientSession(SessionManager mgr)
     {
         _mgr = mgr;
         _mgr.Router.On<Welcome>(OnWelcome);
         _mgr.Router.On<Bye>(OnBye);
+        _mgr.Router.On<ClaimJobResult>(r => LastClaimResult = r);
+        _mgr.Router.On<JobBoardDelta>(d => DeltaApplier.Apply(_mgr.World, d));
     }
 
     public void SayHello()
