@@ -229,21 +229,42 @@ public sealed class LobbyPanel : MonoBehaviour
     {
         if (Log != null) Log.LogInfo("OnHostStartClicked: save=\"" + _selectedSaveName + "\" scene=\"" + _selectedSceneName + "\"");
         if (string.IsNullOrEmpty(_selectedSaveName)) { _errorMessage = "Pick a save first."; return; }
+
+        var mgr = SessionManager.Current;
+        if (mgr == null || mgr.Role != SessionRole.Host) { _errorMessage = "Not hosting."; return; }
+
+        // broadcast save bytes to all clients first — they reassemble while host loads
+        string savesDir = ResolveSavesDir();
+        if (savesDir == null) { _errorMessage = "Could not resolve SaveLoadSystem.s_saveDir"; return; }
+
+        string err;
+        bool ok = mgr.Host.BeginSaveTransfer(_selectedSaveName, _selectedSceneName, savesDir, out err);
+        if (!ok)
+        {
+            _errorMessage = "Save transfer failed: " + err;
+            if (Log != null) Log.LogError("BeginSaveTransfer: " + err);
+            return;
+        }
+
+        // now broadcast the scene-start signal — clients load *after* SaveTransferEnd arrives
+        foreach (var t in mgr.Host.Transports)
+            t.Send(Serializer.Pack(new StartGame { SaveName = _selectedSaveName, SceneName = _selectedSceneName }));
+
+        // host loads its own save locally (unchanged — client receives bytes in parallel)
+        TryLoadLocally(_selectedSaveName, _selectedSceneName);
+    }
+
+    private string ResolveSavesDir()
+    {
         try
         {
-            var mgr = SessionManager.Current;
-            if (mgr != null && mgr.Host != null)
-            {
-                var frame = Serializer.Pack(new StartGame { SaveName = _selectedSaveName, SceneName = _selectedSceneName });
-                foreach (var t in mgr.Host.Transports) t.Send(frame);
-            }
+            return SaveLoadSystem.s_saveDir;
         }
         catch (Exception ex)
         {
-            _errorMessage = "Broadcast StartGame failed: " + ex.Message;
-            if (Log != null) Log.LogError("Broadcast StartGame: " + ex);
+            if (Log != null) Log.LogError("ResolveSavesDir: " + ex);
+            return null;
         }
-        TryLoadLocally(_selectedSaveName, _selectedSceneName);
     }
 
     private void TryLoadLocally(string saveName, string scene)

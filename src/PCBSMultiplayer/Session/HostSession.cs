@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using BepInEx.Logging;
 using PCBSMultiplayer.Net;
 using PCBSMultiplayer.Net.Messages;
@@ -167,6 +168,40 @@ public sealed class HostSession
         var delta = new JobBoardDelta { Available = available, Claimed = claimed, Completed = completed };
         var frame = Serializer.Pack(delta);
         foreach (var t in _transports.Values) t.Send(frame);
+    }
+
+    public bool BeginSaveTransfer(string saveName, string sceneName, string savesDirAbsolute, out string err)
+    {
+        err = null;
+        string fileName = saveName + ".binary";
+        string fullPath = Path.Combine(savesDirAbsolute, fileName);
+
+        byte[] bytes;
+        try
+        {
+            bytes = File.ReadAllBytes(fullPath);
+        }
+        catch (Exception ex)
+        {
+            err = "save read failed at " + fullPath + ": " + ex.Message;
+            return false;
+        }
+
+        var packer = new SaveSyncPacker(bytes, saveName, sceneName);
+
+        var beginFrame = Serializer.Pack(packer.Begin);
+        foreach (var t in _transports.Values) t.Send(beginFrame);
+
+        for (int i = 0; i < packer.Chunks.Count; i++)
+        {
+            var frame = Serializer.Pack(packer.Chunks[i]);
+            foreach (var t in _transports.Values) t.Send(frame);
+        }
+
+        var endFrame = Serializer.Pack(packer.End);
+        foreach (var t in _transports.Values) t.Send(endFrame);
+
+        return true;
     }
 }
 
