@@ -2,7 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net46</TargetFramework>
     <LangVersion>10.0</LangVersion>
-    <Nullable>enable</Nullable>
+    <Nullable>disable</Nullable>
+    <NoWarn>CS8632</NoWarn>
     <RootNamespace>PCBSMultiplayer</RootNamespace>
     <AssemblyName>PCBSMultiplayer</AssemblyName>
     <PCBSGameDir Condition="'$(PCBSGameDir)'==''">/run/media/system/Storage/Steam/steamapps/common/PC Building Simulator/PCBS_Data/Managed</PCBSGameDir>
@@ -21,6 +22,14 @@
     </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>$(PCBSGameDir)/Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(PCBSGameDir)/UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(PCBSGameDir)/Unity.TextMeshPro.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
