@@ -65,3 +65,73 @@ public sealed class SaveSyncPacker
         }
     }
 }
+
+public sealed class SaveSyncReassembler
+{
+    private SaveTransferBegin _begin;
+    private byte[][] _slots; // indexed by chunk index; nulls mean missing
+    private int _received;
+
+    public bool InProgress { get { return _begin != null; } }
+    public int Received { get { return _received; } }
+    public int Expected { get { return _begin == null ? 0 : _begin.ChunkCount; } }
+
+    public void OnBegin(SaveTransferBegin msg)
+    {
+        if (msg == null) throw new ArgumentNullException(nameof(msg));
+        _begin = msg;
+        _slots = msg.ChunkCount > 0 ? new byte[msg.ChunkCount][] : new byte[0][];
+        _received = 0;
+    }
+
+    public void OnChunk(SaveChunk msg)
+    {
+        if (msg == null) throw new ArgumentNullException(nameof(msg));
+        if (_begin == null) return; // no-op before Begin
+        if (msg.Index < 0 || msg.Index >= _slots.Length) return; // out of range; Reject at End
+        if (_slots[msg.Index] != null) return; // duplicate; keep first
+        _slots[msg.Index] = msg.Payload ?? new byte[0];
+        _received++;
+    }
+
+    public bool OnEnd(SaveTransferEnd msg, out byte[] bytes, out string err)
+    {
+        bytes = null;
+        err = null;
+        if (_begin == null) { err = "no transfer in progress"; return false; }
+
+        if (_received != _begin.ChunkCount)
+        {
+            err = "chunk count mismatch: received " + _received + " of " + _begin.ChunkCount;
+            return false;
+        }
+
+        var assembled = new byte[_begin.TotalBytes];
+        int offset = 0;
+        for (int i = 0; i < _slots.Length; i++)
+        {
+            var p = _slots[i];
+            if (p == null) { err = "missing chunk " + i; return false; }
+            if (offset + p.Length > assembled.Length) { err = "chunk " + i + " overruns buffer"; return false; }
+            Buffer.BlockCopy(p, 0, assembled, offset, p.Length);
+            offset += p.Length;
+        }
+
+        uint crc = Crc32.Compute(assembled);
+        if (crc != _begin.Crc32)
+        {
+            err = "crc mismatch: got " + crc.ToString("X8") + " expected " + _begin.Crc32.ToString("X8");
+            return false;
+        }
+
+        bytes = assembled;
+        return true;
+    }
+
+    public void Reset()
+    {
+        _begin = null;
+        _slots = null;
+        _received = 0;
+    }
+}
