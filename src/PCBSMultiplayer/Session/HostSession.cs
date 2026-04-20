@@ -62,6 +62,14 @@ public sealed class HostSession
         if (ok) BroadcastJobBoardDelta();
     }
 
+    internal void RemoveClient(ITransport transport)
+    {
+        if (!_slotByTransport.TryGetValue(transport, out var slot)) return;
+        _clients.Remove(slot);
+        _transports.Remove(slot);
+        _slotByTransport.Remove(transport);
+    }
+
     private void OnSpendMoney(ITransport transport, SpendMoneyRequest req)
     {
         var ok = _mgr.World.Money >= req.Amount;

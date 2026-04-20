@@ -19,6 +19,9 @@ public sealed class SessionManager
     private readonly HostSession? _host;
     private readonly ClientSession? _client;
     private readonly List<(ITransport t, MessageRouter r)> _clientTransports = new();
+    private readonly Dictionary<ITransport, long> _lastSeenMs = new();
+    private const long TimeoutMs = 3000;
+    private long _lastSeenMsStamp;
 
     public SessionManager(SessionRole role, ITransport transport)
     {
@@ -39,8 +42,29 @@ public sealed class SessionManager
         {
             foreach (var (t, r) in _clientTransports)
                 while (t.TryReceive(out var frame))
+                {
+                    _lastSeenMs[t] = _lastSeenMsStamp;
                     r.Dispatch(frame);
+                }
         }
+    }
+
+    public void Heartbeat(long nowMs)
+    {
+        _lastSeenMsStamp = nowMs;
+        if (_host == null) return;
+
+        var toDisconnect = new List<ITransport>();
+        foreach (var (t, _) in _clientTransports)
+        {
+            if (!_lastSeenMs.TryGetValue(t, out var last))
+            {
+                _lastSeenMs[t] = nowMs;
+                continue;
+            }
+            if (nowMs - last > TimeoutMs) toDisconnect.Add(t);
+        }
+        foreach (var t in toDisconnect) _host.RemoveClient(t);
     }
 
     internal void AttachClientTransport(ITransport t, MessageRouter r)
