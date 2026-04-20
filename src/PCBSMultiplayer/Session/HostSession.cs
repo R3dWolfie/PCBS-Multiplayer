@@ -13,6 +13,8 @@ public sealed class HostSession
 
     private readonly SessionManager _mgr;
     private readonly Dictionary<int, ClientInfo> _clients = new();
+    private readonly Dictionary<int, ITransport> _transports = new();
+    private readonly Dictionary<ITransport, int> _slotByTransport = new();
     private int _nextSlot = 1;
 
     public IReadOnlyDictionary<int, ClientInfo> Clients => _clients;
@@ -22,43 +24,41 @@ public sealed class HostSession
         _mgr = mgr;
         _mgr.LocalSlot = 0;
         _mgr.IsLive = true;
-        _mgr.Router.On<Hello>(OnHello);
-        _mgr.Router.On<ClaimJobRequest>(OnClaimJob);
     }
 
-    private void OnHello(Hello hello)
+    public void AttachClient(ITransport transport)
     {
-        if (_clients.Count >= MaxClients) { Reject("lobby_full"); return; }
-        if (hello.ModVersion != ModVersion) { Reject("version_mismatch"); return; }
+        var router = new MessageRouter();
+        router.On<Hello>(h => OnHello(transport, h));
+        router.On<ClaimJobRequest>(r => OnClaimJob(transport, r));
+        _mgr.AttachClientTransport(transport, router);
+    }
+
+    private void OnHello(ITransport transport, Hello hello)
+    {
+        if (_clients.Count >= MaxClients) { transport.Send(Serializer.Pack(new Bye { Reason = "lobby_full" })); return; }
+        if (hello.ModVersion != ModVersion) { transport.Send(Serializer.Pack(new Bye { Reason = "version_mismatch" })); return; }
 
         var slot = _nextSlot++;
         _clients[slot] = new ClientInfo { Slot = slot, SteamId = hello.SteamId, DisplayName = hello.DisplayName };
+        _transports[slot] = transport;
+        _slotByTransport[transport] = slot;
+
         var snapshot = SnapshotBuilder.Serialize(_mgr.World);
-        var welcome = new Welcome { AssignedSlot = slot, SnapshotBytes = snapshot };
-        _mgr.Transport.Send(Serializer.Pack(welcome));
+        transport.Send(Serializer.Pack(new Welcome { AssignedSlot = slot, SnapshotBytes = snapshot }));
     }
 
-    private void Reject(string reason)
+    private void OnClaimJob(ITransport transport, ClaimJobRequest req)
     {
-        _mgr.Transport.Send(Serializer.Pack(new Bye { Reason = reason }));
-    }
-
-    private void OnClaimJob(ClaimJobRequest req)
-    {
-        var ok = _mgr.World.JobBoard.TryClaim(req.JobId, slot: InferRequestingSlot());
-        _mgr.Transport.Send(Serializer.Pack(new ClaimJobResult
+        if (!_slotByTransport.TryGetValue(transport, out var slot)) return;
+        var ok = _mgr.World.JobBoard.TryClaim(req.JobId, slot);
+        transport.Send(Serializer.Pack(new ClaimJobResult
         {
             RequestId = req.RequestId,
             Accepted = ok,
             DenyReason = ok ? "" : "already_claimed_or_missing"
         }));
         if (ok) BroadcastJobBoardDelta();
-    }
-
-    private int InferRequestingSlot()
-    {
-        foreach (var s in _clients.Keys) return s;
-        return -1;
     }
 
     private void BroadcastJobBoardDelta()
@@ -69,7 +69,8 @@ public sealed class HostSession
             Claimed = _mgr.World.JobBoard.Claimed.Values.Select(j => new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot }).ToList(),
             Completed = _mgr.World.JobBoard.Completed.Select(j => new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot }).ToList()
         };
-        _mgr.Transport.Send(Serializer.Pack(delta));
+        var frame = Serializer.Pack(delta);
+        foreach (var t in _transports.Values) t.Send(frame);
     }
 }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using PCBSMultiplayer.Net;
 using PCBSMultiplayer.State;
 
@@ -17,6 +18,7 @@ public sealed class SessionManager
 
     private readonly HostSession? _host;
     private readonly ClientSession? _client;
+    private readonly List<(ITransport t, MessageRouter r)> _clientTransports = new();
 
     public SessionManager(SessionRole role, ITransport transport)
     {
@@ -28,8 +30,22 @@ public sealed class SessionManager
 
     public void Tick()
     {
-        while (Transport.TryReceive(out var frame))
-            Router.Dispatch(frame);
+        if (Role == SessionRole.Client)
+        {
+            while (Transport.TryReceive(out var frame))
+                Router.Dispatch(frame);
+        }
+        else
+        {
+            foreach (var (t, r) in _clientTransports)
+                while (t.TryReceive(out var frame))
+                    r.Dispatch(frame);
+        }
+    }
+
+    internal void AttachClientTransport(ITransport t, MessageRouter r)
+    {
+        _clientTransports.Add((t, r));
     }
 
     public HostSession Host => _host ?? throw new InvalidOperationException("not a host");
