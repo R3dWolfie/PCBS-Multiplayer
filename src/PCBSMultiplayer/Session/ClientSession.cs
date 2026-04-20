@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using BepInEx.Logging;
 using PCBSMultiplayer.Net;
 using PCBSMultiplayer.Net.Messages;
 using PCBSMultiplayer.State;
@@ -10,6 +11,8 @@ namespace PCBSMultiplayer.Session;
 public sealed class ClientSession
 {
     public const string ModVersion = "0.1.0";
+
+    private static readonly ManualLogSource Log = BepInEx.Logging.Logger.CreateLogSource("PCBSMultiplayer.ClientSession");
 
     private readonly SessionManager _mgr;
     public string DisplayName { get; set; } = "";
@@ -144,7 +147,21 @@ public sealed class ClientSession
         {
             DisconnectReason = "save_transfer_failed: " + err;
             _mgr.IsLive = false;
-            _mgr.Transport.Send(Serializer.Pack(new Bye { Reason = "save_crc_mismatch" }));
+            try
+            {
+                _mgr.Transport.Send(Serializer.Pack(new Bye { Reason = "save_transfer_failed" }));
+            }
+            catch (Exception ex)
+            {
+                Log.LogWarning("Send Bye failed (transport likely disconnected): " + ex.Message);
+            }
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_savesDirAbsolute))
+        {
+            DisconnectReason = "save_write_failed: saves dir not configured";
+            _mgr.IsLive = false;
             return;
         }
 
@@ -158,10 +175,22 @@ public sealed class ClientSession
         {
             DisconnectReason = "save_write_failed: " + ex.Message;
             _mgr.IsLive = false;
+            try
+            {
+                _mgr.Transport.Send(Serializer.Pack(new Bye { Reason = "save_write_failed" }));
+            }
+            catch (Exception sendEx)
+            {
+                Log.LogWarning("Send Bye failed (transport likely disconnected): " + sendEx.Message);
+            }
             return;
         }
 
         var handler = SaveReady;
-        if (handler != null) handler(saveName);
+        if (handler != null)
+        {
+            try { handler(saveName); }
+            catch (Exception ex) { Log.LogError("SaveReady subscriber threw: " + ex.Message); }
+        }
     }
 }
