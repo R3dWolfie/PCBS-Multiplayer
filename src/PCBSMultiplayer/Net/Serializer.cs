@@ -22,7 +22,7 @@ public static class Serializer
         var payload = new byte[framed.Length - 1];
         Buffer.BlockCopy(framed, 1, payload, 0, payload.Length);
         var type = TagToType(tag);
-        var obj = (IMessage)MessagePackSerializer.Deserialize(type, payload);
+        var obj = (IMessage)MessagePackSerializer.Deserialize(type, payload)!;
         return (tag, obj);
     }
 
