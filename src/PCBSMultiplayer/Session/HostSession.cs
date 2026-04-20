@@ -20,9 +20,9 @@ public sealed class HostSession
     private const long GraceMs = 30000;
     private long _lastHeartbeatMs;
 
-    public IReadOnlyDictionary<int, ClientInfo> Clients => _clients;
+    public Dictionary<int, ClientInfo> Clients => _clients;
     public GraceTimer GraceTimer => _grace;
-    public IReadOnlyCollection<ITransport> Transports => _transports.Values;
+    public ICollection<ITransport> Transports => _transports.Values;
 
     internal void AttachExistingClient(int slot, ITransport transport)
     {

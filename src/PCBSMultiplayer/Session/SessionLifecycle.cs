@@ -1,5 +1,7 @@
 using BepInEx.Logging;
 using PCBSMultiplayer.Net;
+using PCBSMultiplayer.Net.Messages;
+using PCBSMultiplayer.UI;
 using Steamworks;
 
 namespace PCBSMultiplayer.Session;
@@ -31,8 +33,8 @@ public static class SessionLifecycle
         var cur = SessionManager.Current;
         if (cur != null && cur.Role == SessionRole.Host)
         {
-            _lobby.OpenInviteOverlay();
-            Log.LogInfo("Host lobby already active; re-opened invite overlay.");
+            LobbyPanel.ShowForHost();
+            Log.LogInfo("Host lobby already active; re-opened lobby panel.");
             return;
         }
         if (cur != null) { Log.LogWarning("Already joined as client — leave first."); return; }
@@ -45,8 +47,8 @@ public static class SessionLifecycle
         SessionManager.Current = mgr;
         mgr.IsLive = true;
         _lobby.RegisterMemberJoinHandler(OnPeerJoined);
-        _lobby.OpenInviteOverlay();
-        Log.LogInfo("Host session started; lobby " + lobbyId + "; invite overlay opened.");
+        LobbyPanel.ShowForHost();
+        Log.LogInfo("Host session started; lobby " + lobbyId + "; lobby panel opened.");
     }
 
     private static void OnPeerJoined(CSteamID peerId)
@@ -55,6 +57,7 @@ public static class SessionLifecycle
         if (mgr == null || mgr.Role != SessionRole.Host) return;
         var transport = new SteamTransport(peerId);
         mgr.Host.AttachClient(transport);
+        LobbyPanel.RebroadcastState();
         Log.LogInfo("Peer joined lobby: " + peerId);
     }
 
@@ -78,9 +81,12 @@ public static class SessionLifecycle
         var transport = new SteamTransport(hostId);
         var mgr = new SessionManager(SessionRole.Client, transport);
         SessionManager.Current = mgr;
+        mgr.Router.On<LobbyState>(LobbyPanel.OnLobbyStateReceived);
+        mgr.Router.On<StartGame>(LobbyPanel.OnStartGameReceived);
         mgr.Client.SteamId = SteamUser.GetSteamID().m_SteamID;
         mgr.Client.DisplayName = SteamFriends.GetPersonaName();
         mgr.Client.SayHello();
+        LobbyPanel.ShowForClient();
         Log.LogInfo("Client session started; host " + hostId + ".");
     }
 
@@ -90,6 +96,7 @@ public static class SessionLifecycle
         if (mgr != null && mgr.Transport != null) mgr.Transport.Disconnect();
         SessionManager.Current = null;
         if (_lobby.LobbyId != CSteamID.Nil) SteamMatchmaking.LeaveLobby(_lobby.LobbyId);
+        LobbyPanel.Hide();
         Log.LogInfo("Session stopped.");
     }
 }

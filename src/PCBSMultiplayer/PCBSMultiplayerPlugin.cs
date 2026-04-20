@@ -14,7 +14,7 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
 {
     public const string PluginGuid = "com.pcbs.multiplayer";
     public const string PluginName = "PCBS Multiplayer";
-    public const string PluginVersion = "0.2.0-rc1";
+    public const string PluginVersion = "0.3.0.0";
 
     public static PCBSMultiplayerPlugin Instance { get; private set; }
 
@@ -59,6 +59,8 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
             var panic = gameObject.AddComponent<UI.PanicHotkeyHandler>();
             panic.EnableEntry = _enabled;
             panic.Log = Logger;
+
+            UI.LobbyPanel.Log = Logger;
 
             Logger.LogInfo($"PCBS Multiplayer {PluginVersion} loaded. Steam user: {SteamFriends.GetPersonaName()}");
         }

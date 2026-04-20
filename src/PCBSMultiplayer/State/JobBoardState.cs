@@ -15,9 +15,9 @@ public sealed class JobBoardState
     private readonly Dictionary<string, Job> _claimed = new();
     private readonly List<Job> _completed = new();
 
-    public IReadOnlyList<Job> Available => _available;
-    public IReadOnlyDictionary<string, Job> Claimed => _claimed;
-    public IReadOnlyList<Job> Completed => _completed;
+    public List<Job> Available => _available;
+    public Dictionary<string, Job> Claimed => _claimed;
+    public List<Job> Completed => _completed;
 
     public void AddAvailable(Job job) => _available.Add(job);
 
