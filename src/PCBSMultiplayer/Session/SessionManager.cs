@@ -9,6 +9,9 @@ public enum SessionRole { Host, Client }
 
 public sealed class SessionManager
 {
+    public static SessionManager? Current { get; set; }
+    public static bool ApplyingRemoteDelta { get; set; }
+
     public SessionRole Role { get; }
     public WorldState World { get; } = new();
     public MessageRouter Router { get; } = new();

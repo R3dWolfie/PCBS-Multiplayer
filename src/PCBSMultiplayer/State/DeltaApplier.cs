@@ -7,13 +7,19 @@ public static class DeltaApplier
 {
     public static void Apply(WorldState state, IMessage delta)
     {
-        switch (delta)
+        var prev = Session.SessionManager.ApplyingRemoteDelta;
+        Session.SessionManager.ApplyingRemoteDelta = true;
+        try
         {
-            case MoneyChanged m: state.Money = m.NewTotal; break;
-            case XPChanged x: state.XP = x.NewTotal; break;
-            case TimeChanged t: state.DayIndex = t.NewDayIndex; break;
-            case JobBoardDelta d: state.JobBoard.ReplaceAll(d.Available, d.Claimed, d.Completed); break;
-            default: throw new ArgumentException($"unknown delta {delta.GetType().Name}");
+            switch (delta)
+            {
+                case MoneyChanged m: state.Money = m.NewTotal; break;
+                case XPChanged x: state.XP = x.NewTotal; break;
+                case TimeChanged t: state.DayIndex = t.NewDayIndex; break;
+                case JobBoardDelta d: state.JobBoard.ReplaceAll(d.Available, d.Claimed, d.Completed); break;
+                default: throw new ArgumentException($"unknown delta {delta.GetType().Name}");
+            }
         }
+        finally { Session.SessionManager.ApplyingRemoteDelta = prev; }
     }
 }
