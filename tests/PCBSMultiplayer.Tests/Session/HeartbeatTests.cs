@@ -20,8 +20,9 @@ public class HeartbeatTests
 
         host.Heartbeat(nowMs: 1000);
         host.Heartbeat(nowMs: 5000);
-
-        host.Host.Clients.Should().BeEmpty("client timed out");
+        host.Host.Clients.Should().ContainKey(1, "still in grace window");
+        host.Heartbeat(nowMs: 40000);
+        host.Host.Clients.Should().BeEmpty("grace elapsed");
     }
 
     [Fact]

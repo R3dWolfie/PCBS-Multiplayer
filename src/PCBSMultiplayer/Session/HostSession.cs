@@ -16,8 +16,16 @@ public sealed class HostSession
     private readonly Dictionary<int, ITransport> _transports = new();
     private readonly Dictionary<ITransport, int> _slotByTransport = new();
     private int _nextSlot = 1;
+    private readonly GraceTimer _grace = new();
+    private readonly HashSet<int> _inGrace = new();
+    private const long GraceMs = 30000;
+    private long _lastHeartbeatMs;
 
     public IReadOnlyDictionary<int, ClientInfo> Clients => _clients;
+    public GraceTimer GraceTimer => _grace;
+
+    internal void TickGrace(long nowMs) => _grace.Tick(nowMs);
+    internal void SetLastHeartbeat(long nowMs) => _lastHeartbeatMs = nowMs;
 
     public HostSession(SessionManager mgr)
     {
@@ -65,9 +73,19 @@ public sealed class HostSession
     internal void RemoveClient(ITransport transport)
     {
         if (!_slotByTransport.TryGetValue(transport, out var slot)) return;
-        _clients.Remove(slot);
-        _transports.Remove(slot);
-        _slotByTransport.Remove(transport);
+        if (!_inGrace.Add(slot)) return;
+        _grace.Start($"client-{slot}", startMs: _lastHeartbeatMs, durationMs: GraceMs, onElapsed: () =>
+        {
+            var claimed = new List<string>();
+            foreach (var kv in _mgr.World.JobBoard.Claimed)
+                if (kv.Value.ClaimedBySlot == slot) claimed.Add(kv.Key);
+            foreach (var id in claimed) _mgr.World.JobBoard.Release(id);
+            _clients.Remove(slot);
+            _transports.Remove(slot);
+            _slotByTransport.Remove(transport);
+            _inGrace.Remove(slot);
+            BroadcastJobBoardDelta();
+        });
     }
 
     private void OnSpendMoney(ITransport transport, SpendMoneyRequest req)

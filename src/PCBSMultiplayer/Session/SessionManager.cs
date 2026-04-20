@@ -54,6 +54,8 @@ public sealed class SessionManager
         _lastSeenMsStamp = nowMs;
         if (_host == null) return;
 
+        _host.SetLastHeartbeat(nowMs);
+
         var toDisconnect = new List<ITransport>();
         foreach (var (t, _) in _clientTransports)
         {
@@ -65,6 +67,7 @@ public sealed class SessionManager
             if (nowMs - last > TimeoutMs) toDisconnect.Add(t);
         }
         foreach (var t in toDisconnect) _host.RemoveClient(t);
+        _host.TickGrace(nowMs);
     }
 
     internal void AttachClientTransport(ITransport t, MessageRouter r)
