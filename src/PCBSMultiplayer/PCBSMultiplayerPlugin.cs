@@ -2,7 +2,10 @@ using System;
 using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
+using PCBSMultiplayer.Net;
+using PCBSMultiplayer.Session;
 using Steamworks;
+using UnityEngine;
 
 namespace PCBSMultiplayer;
 
@@ -11,13 +14,13 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
 {
     public const string PluginGuid = "com.pcbs.multiplayer";
     public const string PluginName = "PCBS Multiplayer";
-    public const string PluginVersion = "0.1.0";
+    public const string PluginVersion = "0.2.0-rc1";
 
-    public static PCBSMultiplayerPlugin? Instance { get; private set; }
+    public static PCBSMultiplayerPlugin Instance { get; private set; }
 
-    private ConfigEntry<bool>? _enabled;
-    private ConfigEntry<uint>? _steamAppId;
-    private Harmony? _harmony;
+    private ConfigEntry<bool> _enabled;
+    private ConfigEntry<uint> _steamAppId;
+    private Harmony _harmony;
     private bool _steamInitialized;
 
     private void Awake()
@@ -51,6 +54,12 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
             _harmony = new Harmony(PluginGuid);
             _harmony.PatchAll(typeof(PCBSMultiplayerPlugin).Assembly);
 
+            Session.SessionLifecycle.Init();
+
+            var panic = gameObject.AddComponent<UI.PanicHotkeyHandler>();
+            panic.EnableEntry = _enabled;
+            panic.Log = Logger;
+
             Logger.LogInfo($"PCBS Multiplayer {PluginVersion} loaded. Steam user: {SteamFriends.GetPersonaName()}");
         }
         catch (Exception ex)
@@ -61,7 +70,25 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
 
     private void Update()
     {
-        if (_steamInitialized) SteamAPI.RunCallbacks();
+        if (!_steamInitialized) return;
+        SteamAPI.RunCallbacks();
+
+        var mgr = SessionManager.Current;
+        if (mgr == null) return;
+
+        var clientSt = mgr.Transport as SteamTransport;
+        if (clientSt != null) clientSt.Pump();
+        if (mgr.Role == SessionRole.Host)
+        {
+            foreach (var t in mgr.Host.Transports)
+            {
+                var hst = t as SteamTransport;
+                if (hst != null) hst.Pump();
+            }
+        }
+
+        mgr.Tick();
+        mgr.Heartbeat((long)(Time.unscaledTime * 1000f));
     }
 
     private void OnDestroy()
