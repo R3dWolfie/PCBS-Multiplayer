@@ -1,7 +1,11 @@
-using System;
 using Steamworks;
 
 namespace PCBSMultiplayer.Session;
+
+public delegate void HostCreatedHandler(CSteamID lobbyId);
+public delegate void LobbyJoinedHandler(CSteamID hostId, string remoteVersion);
+public delegate void InviteHandler(CSteamID lobbyId);
+public delegate void MemberJoinedHandler(CSteamID peerId);
 
 public sealed class SteamLobby
 {
@@ -11,13 +15,16 @@ public sealed class SteamLobby
     public CSteamID LobbyId { get; private set; } = CSteamID.Nil;
     public bool IsHost { get; private set; }
 
-    private Callback<LobbyCreated_t>? _onCreated;
-    private Callback<LobbyEnter_t>? _onEnter;
-    private Callback<GameLobbyJoinRequested_t>? _onJoinRequested;
-    private Action<CSteamID>? _onHostCreated;
-    private Action<CSteamID, string?>? _onJoined;
+    private Callback<LobbyCreated_t> _onCreated;
+    private Callback<LobbyEnter_t> _onEnter;
+    private Callback<GameLobbyJoinRequested_t> _onJoinRequested;
+    private Callback<LobbyChatUpdate_t> _onChat;
+    private HostCreatedHandler _onHostCreated;
+    private LobbyJoinedHandler _onJoined;
+    private InviteHandler _onInvite;
+    private MemberJoinedHandler _onMemberJoined;
 
-    public void CreateLobby(string modVersion, Action<CSteamID> onCreated)
+    public void CreateLobby(string modVersion, HostCreatedHandler onCreated)
     {
         _onHostCreated = onCreated;
         _onCreated ??= Callback<LobbyCreated_t>.Create(OnLobbyCreated);
@@ -25,16 +32,31 @@ public sealed class SteamLobby
         _pendingModVersion = modVersion;
     }
 
-    public void JoinLobby(CSteamID lobbyId, Action<CSteamID, string?> onJoined)
+    public void JoinLobby(CSteamID lobbyId, LobbyJoinedHandler onJoined)
     {
         _onJoined = onJoined;
         _onEnter ??= Callback<LobbyEnter_t>.Create(OnLobbyEnter);
         SteamMatchmaking.JoinLobby(lobbyId);
     }
 
-    public void RegisterInviteHandler(Action<CSteamID> onInvite)
+    public void RegisterInviteHandler(InviteHandler onInvite)
     {
-        _onJoinRequested ??= Callback<GameLobbyJoinRequested_t>.Create(ev => onInvite(ev.m_steamIDLobby));
+        _onInvite = onInvite;
+        _onJoinRequested ??= Callback<GameLobbyJoinRequested_t>.Create(OnJoinRequested);
+    }
+
+    public void RegisterMemberJoinHandler(MemberJoinedHandler onMemberJoined)
+    {
+        _onMemberJoined = onMemberJoined;
+        _onChat ??= Callback<LobbyChatUpdate_t>.Create(OnChat);
+    }
+
+    private void OnChat(LobbyChatUpdate_t ev)
+    {
+        var flags = (EChatMemberStateChange)ev.m_rgfChatMemberStateChange;
+        if ((flags & EChatMemberStateChange.k_EChatMemberStateChangeEntered) != 0
+            && _onMemberJoined != null)
+            _onMemberJoined(new CSteamID(ev.m_ulSteamIDUserChanged));
     }
 
     public void OpenInviteOverlay()
@@ -51,7 +73,7 @@ public sealed class SteamLobby
         LobbyId = new CSteamID(ev.m_ulSteamIDLobby);
         IsHost = true;
         SteamMatchmaking.SetLobbyData(LobbyId, VersionMetaKey, _pendingModVersion);
-        _onHostCreated?.Invoke(LobbyId);
+        if (_onHostCreated != null) _onHostCreated(LobbyId);
     }
 
     private void OnLobbyEnter(LobbyEnter_t ev)
@@ -59,6 +81,11 @@ public sealed class SteamLobby
         LobbyId = new CSteamID(ev.m_ulSteamIDLobby);
         IsHost = false;
         var remote = SteamMatchmaking.GetLobbyData(LobbyId, VersionMetaKey);
-        _onJoined?.Invoke(new CSteamID(SteamMatchmaking.GetLobbyOwner(LobbyId).m_SteamID), remote);
+        if (_onJoined != null) _onJoined(new CSteamID(SteamMatchmaking.GetLobbyOwner(LobbyId).m_SteamID), remote);
+    }
+
+    private void OnJoinRequested(GameLobbyJoinRequested_t ev)
+    {
+        if (_onInvite != null) _onInvite(ev.m_steamIDLobby);
     }
 }

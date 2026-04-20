@@ -1,4 +1,4 @@
-using System.Linq;
+using System.Collections.Generic;
 using PCBSMultiplayer.Net;
 using PCBSMultiplayer.Net.Messages;
 using PCBSMultiplayer.State;
@@ -12,10 +12,10 @@ public sealed class ClientSession
     private readonly SessionManager _mgr;
     public string DisplayName { get; set; } = "";
     public ulong SteamId { get; set; }
-    public string? DisconnectReason { get; private set; }
+    public string DisconnectReason { get; private set; }
 
-    public ClaimJobResult? LastClaimResult { get; private set; }
-    public SpendMoneyResult? LastSpendMoneyResult { get; private set; }
+    public ClaimJobResult LastClaimResult { get; private set; }
+    public SpendMoneyResult LastSpendMoneyResult { get; private set; }
 
     public ClientSession(SessionManager mgr)
     {
@@ -25,7 +25,7 @@ public sealed class ClientSession
         _mgr.Router.On<ClaimJobResult>(r => LastClaimResult = r);
         _mgr.Router.On<JobBoardDelta>(d => DeltaApplier.Apply(_mgr.World, d));
         _mgr.Router.On<SpendMoneyResult>(r => LastSpendMoneyResult = r);
-        _mgr.Router.On<MoneyChanged>(d => DeltaApplier.Apply(_mgr.World, d));
+        _mgr.Router.On<MoneyChanged>(OnMoneyChanged);
     }
 
     public void SayHello()
@@ -46,10 +46,18 @@ public sealed class ClientSession
         _mgr.World.Money = snapshot.Money;
         _mgr.World.XP = snapshot.XP;
         _mgr.World.DayIndex = snapshot.DayIndex;
-        _mgr.World.JobBoard.ReplaceAll(
-            snapshot.JobBoard.Available.Select(j => new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot }).ToList(),
-            snapshot.JobBoard.Claimed.Values.Select(j => new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot }).ToList(),
-            snapshot.JobBoard.Completed.Select(j => new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot }).ToList());
+
+        var available = new List<SnapshotBuilder.JobDto>();
+        foreach (var j in snapshot.JobBoard.Available)
+            available.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
+        var claimed = new List<SnapshotBuilder.JobDto>();
+        foreach (var j in snapshot.JobBoard.Claimed.Values)
+            claimed.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
+        var completed = new List<SnapshotBuilder.JobDto>();
+        foreach (var j in snapshot.JobBoard.Completed)
+            completed.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
+
+        _mgr.World.JobBoard.ReplaceAll(available, claimed, completed);
         _mgr.LocalSlot = w.AssignedSlot;
         _mgr.IsLive = true;
     }
@@ -59,5 +67,43 @@ public sealed class ClientSession
         DisconnectReason = b.Reason;
         _mgr.IsLive = false;
         _mgr.Transport.Disconnect();
+    }
+
+    private void OnMoneyChanged(MoneyChanged d)
+    {
+        DeltaApplier.Apply(_mgr.World, d);
+        var career = CareerStatus.Get();
+        if (career == null) return;
+        int current = career.GetCash();
+        int target = (int)d.NewTotal;
+        int diff = target - current;
+        if (diff == 0) return;
+        SessionManager.ApplyingRemoteDelta = true;
+        try
+        {
+            if (diff > 0) career.AddCash(diff);
+            else career.SpendCash(-diff, true);
+        }
+        finally { SessionManager.ApplyingRemoteDelta = false; }
+    }
+
+    private int _nextRequestId = 1;
+
+    public void RequestSpend(int amount)
+    {
+        _mgr.Transport.Send(Serializer.Pack(new SpendMoneyRequest
+        {
+            RequestId = (_nextRequestId++).ToString(),
+            Amount = amount
+        }));
+    }
+
+    public void RequestClaimJob(string jobId)
+    {
+        _mgr.Transport.Send(Serializer.Pack(new ClaimJobRequest
+        {
+            RequestId = (_nextRequestId++).ToString(),
+            JobId = jobId
+        }));
     }
 }

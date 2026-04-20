@@ -1,7 +1,8 @@
-using System;
 using System.Collections.Generic;
 
 namespace PCBSMultiplayer.Session;
+
+public delegate void GraceCallback();
 
 public sealed class GraceTimer
 {
@@ -11,11 +12,11 @@ public sealed class GraceTimer
     {
         public long StartMs;
         public long DurationMs;
-        public Action Callback = () => { };
+        public GraceCallback Callback;
         public bool Fired;
     }
 
-    public void Start(string key, long startMs, long durationMs, Action onElapsed)
+    public void Start(string key, long startMs, long durationMs, GraceCallback onElapsed)
     {
         _entries[key] = new Entry { StartMs = startMs, DurationMs = durationMs, Callback = onElapsed, Fired = false };
     }
@@ -24,7 +25,7 @@ public sealed class GraceTimer
 
     public void Tick(long nowMs)
     {
-        List<string>? toRemove = null;
+        List<string> toRemove = null;
         foreach (var kvp in _entries)
         {
             var e = kvp.Value;

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using PCBSMultiplayer.Net;
 using PCBSMultiplayer.Net.Messages;
 using PCBSMultiplayer.State;
@@ -23,6 +22,14 @@ public sealed class HostSession
 
     public IReadOnlyDictionary<int, ClientInfo> Clients => _clients;
     public GraceTimer GraceTimer => _grace;
+    public IReadOnlyCollection<ITransport> Transports => _transports.Values;
+
+    internal void AttachExistingClient(int slot, ITransport transport)
+    {
+        _clients[slot] = new ClientInfo { Slot = slot };
+        _transports[slot] = transport;
+        _slotByTransport[transport] = slot;
+    }
 
     internal void TickGrace(long nowMs) => _grace.Tick(nowMs);
     internal void SetLastHeartbeat(long nowMs) => _lastHeartbeatMs = nowMs;
@@ -122,14 +129,26 @@ public sealed class HostSession
         }
     }
 
-    private void BroadcastJobBoardDelta()
+    public void BroadcastMoneyChanged(long newTotal)
     {
-        var delta = new JobBoardDelta
-        {
-            Available = _mgr.World.JobBoard.Available.Select(j => new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot }).ToList(),
-            Claimed = _mgr.World.JobBoard.Claimed.Values.Select(j => new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot }).ToList(),
-            Completed = _mgr.World.JobBoard.Completed.Select(j => new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot }).ToList()
-        };
+        _mgr.World.Money = newTotal;
+        var frame = Serializer.Pack(new MoneyChanged { NewTotal = newTotal });
+        foreach (var t in _transports.Values) t.Send(frame);
+    }
+
+    public void BroadcastJobBoardDelta()
+    {
+        var available = new List<SnapshotBuilder.JobDto>();
+        foreach (var j in _mgr.World.JobBoard.Available)
+            available.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
+        var claimed = new List<SnapshotBuilder.JobDto>();
+        foreach (var j in _mgr.World.JobBoard.Claimed.Values)
+            claimed.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
+        var completed = new List<SnapshotBuilder.JobDto>();
+        foreach (var j in _mgr.World.JobBoard.Completed)
+            completed.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
+
+        var delta = new JobBoardDelta { Available = available, Claimed = claimed, Completed = completed };
         var frame = Serializer.Pack(delta);
         foreach (var t in _transports.Values) t.Send(frame);
     }
