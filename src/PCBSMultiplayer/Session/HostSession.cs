@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using BepInEx.Logging;
 using PCBSMultiplayer.Net;
 using PCBSMultiplayer.Net.Messages;
 using PCBSMultiplayer.State;
@@ -10,6 +11,9 @@ public sealed class HostSession
 {
     public const string ModVersion = "0.1.0";
     public const int MaxClients = 3;
+
+    private static readonly ManualLogSource Log =
+        BepInEx.Logging.Logger.CreateLogSource("PCBSMultiplayer.HostSession");
 
     private readonly SessionManager _mgr;
     private readonly Dictionary<int, ClientInfo> _clients = new();
@@ -83,7 +87,14 @@ public sealed class HostSession
         var snapshot = SnapshotBuilder.Serialize(_mgr.World);
         transport.Send(Serializer.Pack(new Welcome { AssignedSlot = slot, SnapshotBytes = snapshot }));
         var handler = ClientAccepted;
-        if (handler != null) handler(slot);
+        if (handler != null)
+        {
+            try { handler(slot); }
+            catch (Exception ex)
+            {
+                Log.LogError("ClientAccepted subscriber threw: " + ex.Message);
+            }
+        }
     }
 
     private void OnClaimJob(ITransport transport, ClaimJobRequest req)

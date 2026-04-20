@@ -100,6 +100,10 @@ public static class SessionLifecycle
     {
         var mgr = SessionManager.Current;
         if (mgr != null && mgr.Transport != null) mgr.Transport.Disconnect();
+        if (mgr != null && mgr.Role == SessionRole.Host && mgr.Host != null)
+        {
+            mgr.Host.ClientAccepted -= OnClientAccepted;
+        }
         SessionManager.Current = null;
         if (_lobby.LobbyId != CSteamID.Nil) SteamMatchmaking.LeaveLobby(_lobby.LobbyId);
         LobbyPanel.Hide();
