@@ -15,6 +15,7 @@ public sealed class ClientSession
     public string? DisconnectReason { get; private set; }
 
     public ClaimJobResult? LastClaimResult { get; private set; }
+    public SpendMoneyResult? LastSpendMoneyResult { get; private set; }
 
     public ClientSession(SessionManager mgr)
     {
@@ -23,6 +24,8 @@ public sealed class ClientSession
         _mgr.Router.On<Bye>(OnBye);
         _mgr.Router.On<ClaimJobResult>(r => LastClaimResult = r);
         _mgr.Router.On<JobBoardDelta>(d => DeltaApplier.Apply(_mgr.World, d));
+        _mgr.Router.On<SpendMoneyResult>(r => LastSpendMoneyResult = r);
+        _mgr.Router.On<MoneyChanged>(d => DeltaApplier.Apply(_mgr.World, d));
     }
 
     public void SayHello()

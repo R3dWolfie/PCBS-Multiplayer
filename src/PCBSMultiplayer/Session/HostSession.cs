@@ -31,6 +31,7 @@ public sealed class HostSession
         var router = new MessageRouter();
         router.On<Hello>(h => OnHello(transport, h));
         router.On<ClaimJobRequest>(r => OnClaimJob(transport, r));
+        router.On<SpendMoneyRequest>(r => OnSpendMoney(transport, r));
         _mgr.AttachClientTransport(transport, router);
     }
 
@@ -59,6 +60,23 @@ public sealed class HostSession
             DenyReason = ok ? "" : "already_claimed_or_missing"
         }));
         if (ok) BroadcastJobBoardDelta();
+    }
+
+    private void OnSpendMoney(ITransport transport, SpendMoneyRequest req)
+    {
+        var ok = _mgr.World.Money >= req.Amount;
+        if (ok) _mgr.World.Money -= req.Amount;
+        transport.Send(Serializer.Pack(new SpendMoneyResult
+        {
+            RequestId = req.RequestId,
+            Accepted = ok,
+            DenyReason = ok ? "" : "insufficient_funds"
+        }));
+        if (ok)
+        {
+            var delta = Serializer.Pack(new MoneyChanged { NewTotal = _mgr.World.Money });
+            foreach (var t in _transports.Values) t.Send(delta);
+        }
     }
 
     private void BroadcastJobBoardDelta()
