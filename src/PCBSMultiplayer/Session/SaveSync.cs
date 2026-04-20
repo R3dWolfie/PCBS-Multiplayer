@@ -71,6 +71,7 @@ public sealed class SaveSyncReassembler
     private SaveTransferBegin _begin;
     private byte[][] _slots; // indexed by chunk index; nulls mean missing
     private int _received;
+    private int _droppedOutOfRange;
 
     public bool InProgress { get { return _begin != null; } }
     public int Received { get { return _received; } }
@@ -82,13 +83,14 @@ public sealed class SaveSyncReassembler
         _begin = msg;
         _slots = msg.ChunkCount > 0 ? new byte[msg.ChunkCount][] : new byte[0][];
         _received = 0;
+        _droppedOutOfRange = 0;
     }
 
     public void OnChunk(SaveChunk msg)
     {
         if (msg == null) throw new ArgumentNullException(nameof(msg));
         if (_begin == null) return; // no-op before Begin
-        if (msg.Index < 0 || msg.Index >= _slots.Length) return; // out of range; Reject at End
+        if (msg.Index < 0 || msg.Index >= _slots.Length) { _droppedOutOfRange++; return; } // out of range; Reject at End
         if (_slots[msg.Index] != null) return; // duplicate; keep first
         _slots[msg.Index] = msg.Payload ?? new byte[0];
         _received++;
@@ -103,6 +105,8 @@ public sealed class SaveSyncReassembler
         if (_received != _begin.ChunkCount)
         {
             err = "chunk count mismatch: received " + _received + " of " + _begin.ChunkCount;
+            if (_droppedOutOfRange > 0)
+                err += " (" + _droppedOutOfRange + " chunks dropped as out-of-range)";
             return false;
         }
 
@@ -124,6 +128,7 @@ public sealed class SaveSyncReassembler
             return false;
         }
 
+        Reset();
         bytes = assembled;
         return true;
     }
@@ -133,5 +138,6 @@ public sealed class SaveSyncReassembler
         _begin = null;
         _slots = null;
         _received = 0;
+        _droppedOutOfRange = 0;
     }
 }

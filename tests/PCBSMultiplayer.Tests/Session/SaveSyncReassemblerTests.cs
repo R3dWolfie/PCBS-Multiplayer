@@ -130,5 +130,33 @@ public class SaveSyncReassemblerTests
         var ok = r.OnEnd(packer.End, out var bytes, out var err);
         ok.Should().BeFalse();
         err.Should().NotBeNullOrEmpty();
+        err.Should().Contain("out-of-range");
+    }
+
+    [Fact]
+    public void Reassembler_can_be_reused_for_second_transfer_after_success()
+    {
+        var r = new SaveSyncReassembler();
+
+        // first transfer
+        var bytes1 = MakeBytes(1000, seed: 1);
+        var p1 = new SaveSyncPacker(bytes1, "s", "sc");
+        r.OnBegin(p1.Begin);
+        foreach (var c in p1.Chunks) r.OnChunk(c);
+        r.OnEnd(p1.End, out var out1, out var err1).Should().BeTrue();
+        out1.Should().Equal(bytes1);
+
+        // state should be clean after success — reassembler is reusable
+        r.InProgress.Should().BeFalse();
+        r.Received.Should().Be(0);
+        r.Expected.Should().Be(0);
+
+        // second transfer
+        var bytes2 = MakeBytes(5000, seed: 99);
+        var p2 = new SaveSyncPacker(bytes2, "s2", "sc2", chunkSize: 2048);
+        r.OnBegin(p2.Begin);
+        foreach (var c in p2.Chunks) r.OnChunk(c);
+        r.OnEnd(p2.End, out var out2, out var err2).Should().BeTrue();
+        out2.Should().Equal(bytes2);
     }
 }
