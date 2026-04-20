@@ -1,3 +1,4 @@
+using System;
 using BepInEx.Logging;
 using PCBSMultiplayer.Net;
 using PCBSMultiplayer.Net.Messages;
@@ -92,6 +93,9 @@ public static class SessionLifecycle
         mgr.Client.SteamId = SteamUser.GetSteamID().m_SteamID;
         mgr.Client.DisplayName = SteamFriends.GetPersonaName();
         mgr.Client.SayHello();
+        string savesDir = null;
+        try { savesDir = SaveLoadSystem.s_saveDir; } catch (Exception ex) { Log.LogError("s_saveDir resolve: " + ex); }
+        mgr.Client.ConfigureSaveSync(savesDir ?? "", _lobby.LobbyId.m_SteamID);
         LobbyPanel.ShowForClient();
         Log.LogInfo("Client session started; host " + hostId + ".");
     }

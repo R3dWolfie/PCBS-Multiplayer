@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using PCBSMultiplayer.Net;
 using PCBSMultiplayer.Net.Messages;
 using PCBSMultiplayer.State;
@@ -17,6 +19,18 @@ public sealed class ClientSession
     public ClaimJobResult LastClaimResult { get; private set; }
     public SpendMoneyResult LastSpendMoneyResult { get; private set; }
 
+    private readonly SaveSyncReassembler _saveSync = new SaveSyncReassembler();
+    private string _savesDirAbsolute = "";
+    private ulong _lobbyId;
+
+    public event Action<string> SaveReady; // string = save name (without .binary)
+
+    public void ConfigureSaveSync(string savesDirAbsolute, ulong lobbyId)
+    {
+        _savesDirAbsolute = savesDirAbsolute ?? "";
+        _lobbyId = lobbyId;
+    }
+
     public ClientSession(SessionManager mgr)
     {
         _mgr = mgr;
@@ -26,6 +40,9 @@ public sealed class ClientSession
         _mgr.Router.On<JobBoardDelta>(d => DeltaApplier.Apply(_mgr.World, d));
         _mgr.Router.On<SpendMoneyResult>(r => LastSpendMoneyResult = r);
         _mgr.Router.On<MoneyChanged>(OnMoneyChanged);
+        _mgr.Router.On<SaveTransferBegin>(OnSaveTransferBegin);
+        _mgr.Router.On<SaveChunk>(OnSaveChunk);
+        _mgr.Router.On<SaveTransferEnd>(OnSaveTransferEnd);
     }
 
     public void SayHello()
@@ -105,5 +122,46 @@ public sealed class ClientSession
             RequestId = (_nextRequestId++).ToString(),
             JobId = jobId
         }));
+    }
+
+    private void OnSaveTransferBegin(SaveTransferBegin msg)
+    {
+        _saveSync.Reset();
+        _saveSync.OnBegin(msg);
+    }
+
+    private void OnSaveChunk(SaveChunk msg)
+    {
+        _saveSync.OnChunk(msg);
+    }
+
+    private void OnSaveTransferEnd(SaveTransferEnd msg)
+    {
+        byte[] bytes;
+        string err;
+        bool ok = _saveSync.OnEnd(msg, out bytes, out err);
+        if (!ok)
+        {
+            DisconnectReason = "save_transfer_failed: " + err;
+            _mgr.IsLive = false;
+            _mgr.Transport.Send(Serializer.Pack(new Bye { Reason = "save_crc_mismatch" }));
+            return;
+        }
+
+        string saveName = "mp-" + _lobbyId;
+        string fullPath = Path.Combine(_savesDirAbsolute, saveName + ".binary");
+        try
+        {
+            File.WriteAllBytes(fullPath, bytes);
+        }
+        catch (Exception ex)
+        {
+            DisconnectReason = "save_write_failed: " + ex.Message;
+            _mgr.IsLive = false;
+            return;
+        }
+
+        var handler = SaveReady;
+        if (handler != null) handler(saveName);
     }
 }
