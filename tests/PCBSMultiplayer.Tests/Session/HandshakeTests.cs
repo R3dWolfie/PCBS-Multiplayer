@@ -36,4 +36,30 @@ public class HandshakeTests
         host.Host.Clients.Should().ContainKey(1);
         host.Host.Clients[1].DisplayName.Should().Be("alice");
     }
+
+    [Fact]
+    public void Mismatched_mod_version_is_rejected_with_bye()
+    {
+        var (transportA, transportB) = InMemoryTransport.CreatePair();
+        var host = new SessionManager(SessionRole.Host, transportA);
+        var client = new SessionManager(SessionRole.Client, transportB);
+        client.Client.DisplayName = "bob";
+        client.Client.SteamId = 76561198UL;
+
+        var bogus = new PCBSMultiplayer.Net.Messages.Hello
+        {
+            ModVersion = "9.9.9",
+            GameVersion = "1.15.2",
+            SteamId = 76561198UL,
+            DisplayName = "bob"
+        };
+        transportB.Send(Serializer.Pack(bogus));
+
+        host.Tick();
+        client.Tick();
+
+        client.Client.DisconnectReason.Should().Be("version_mismatch");
+        client.IsLive.Should().BeFalse();
+        host.Host.Clients.Should().BeEmpty();
+    }
 }
