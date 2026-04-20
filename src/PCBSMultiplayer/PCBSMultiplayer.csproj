@@ -5,9 +5,11 @@
     <Nullable>enable</Nullable>
     <RootNamespace>PCBSMultiplayer</RootNamespace>
     <AssemblyName>PCBSMultiplayer</AssemblyName>
+    <PCBSGameDir Condition="'$(PCBSGameDir)'==''">/run/media/system/Storage/Steam/steamapps/common/PC Building Simulator/PCBS_Data/Managed</PCBSGameDir>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="BepInEx.Core" Version="5.4.21" />
+    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.2" PrivateAssets="all" />
     <PackageReference Include="HarmonyX" Version="2.7.0" />
     <PackageReference Include="MessagePack" Version="2.5.192" />
     <PackageReference Include="UnityEngine.Modules" Version="2018.4.36" IncludeAssets="compile" />
@@ -17,5 +19,16 @@
       <HintPath>..\..\libs\Steamworks.NET.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>$(PCBSGameDir)/Assembly-CSharp-firstpass.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(PCBSGameDir)/Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Publicize Include="Assembly-CSharp-firstpass" PublicizeTarget="All" PublicizeCompilerGenerated="false" IncludeOriginalAttributesAttribute="false" Strip="false" />
   </ItemGroup>
 </Project>
