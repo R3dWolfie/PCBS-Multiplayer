@@ -18,6 +18,8 @@ public sealed class InMemoryTransport : ITransport
         lock (_peer._gate) _peer._inbox.Enqueue(payload);
     }
 
+    public void SendUnreliable(byte[] payload, int channel) => Send(payload);
+
     public bool TryReceive(out byte[] payload)
     {
         lock (_gate)

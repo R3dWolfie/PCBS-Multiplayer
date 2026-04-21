@@ -180,6 +180,7 @@ internal sealed class NullTransport : ITransport
 {
     public bool IsConnected { get { return false; } }
     public void Send(byte[] payload) { }
+    public void SendUnreliable(byte[] payload, int channel) { }
     public bool TryReceive(out byte[] payload) { payload = new byte[0]; return false; }
     public void Disconnect() { }
 }
