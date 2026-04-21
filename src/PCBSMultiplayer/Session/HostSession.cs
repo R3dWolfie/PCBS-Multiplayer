@@ -60,6 +60,7 @@ public sealed class HostSession
 
     private void OnHello(ITransport transport, Hello hello)
     {
+        Log.LogInfo("OnHello: from " + hello.DisplayName + " (steam=" + hello.SteamId + ", mod=" + hello.ModVersion + ")");
         if (hello.ModVersion != ModVersion) { transport.Send(Serializer.Pack(new Bye { Reason = "version_mismatch" })); return; }
 
         int slot = -1;

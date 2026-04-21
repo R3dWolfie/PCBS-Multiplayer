@@ -18,7 +18,7 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
     // PluginVersion must be System.Version-parseable (digits+dots only) — BepInEx 5.x rejects
     // SemVer pre-release suffixes like "-rc1" with "Skipping type ... version is invalid".
     public const string PluginVersion = "0.3.0.0";
-    public const string DisplayVersion = "0.3.0-alpha-preview4";
+    public const string DisplayVersion = "0.3.0-alpha-preview5";
 
     public static PCBSMultiplayerPlugin Instance { get; private set; }
 
@@ -26,6 +26,7 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
     private ConfigEntry<uint> _steamAppId;
     private Harmony _harmony;
     private bool _steamInitialized;
+    private Callback<P2PSessionRequest_t> _onP2PRequest;
 
     private void Awake()
     {
@@ -54,6 +55,17 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
                 return;
             }
             _steamInitialized = true;
+
+            // Register P2PSessionRequest_t handler at plugin scope so it's live BEFORE any lobby
+            // join. If a peer's first packet arrives before their per-transport callback is
+            // registered (race between LobbyChatUpdate_t and the client's first SendP2PPacket),
+            // Steam drops the packet and the session never recovers. Auto-accept any request so
+            // we never miss the Hello.
+            _onP2PRequest = Callback<P2PSessionRequest_t>.Create(ev =>
+            {
+                SteamNetworking.AcceptP2PSessionWithUser(ev.m_steamIDRemote);
+                Logger.LogInfo("P2P session auto-accepted from " + ev.m_steamIDRemote);
+            });
 
             _harmony = new Harmony(PluginGuid);
             _harmony.PatchAll(typeof(PCBSMultiplayerPlugin).Assembly);

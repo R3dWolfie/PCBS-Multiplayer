@@ -2,7 +2,20 @@
 
 All notable changes to PCBS Multiplayer. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer with `-rc` tags for pre-release builds awaiting the closing manual gate.
 
-## [0.3.0-alpha-preview4] — 2026-04-21
+## [0.3.0-alpha-preview5] — 2026-04-21
+
+Fourth hotfix respin. `preview4` fixed the pump deadlock but pairing still failed intermittently because the `P2PSessionRequest_t` callback was registered too late — inside the per-peer `SteamTransport` constructor, which runs after `OnPeerJoined`. The client's Hello can arrive at the host *before* that callback exists, and Steam drops the packet when no handler is registered.
+
+### Fixed — release-blocking
+
+- **Race: host dropped client's first packet when request handler wasn't registered yet.** On the host, `LobbyChatUpdate_t` (which triggers `OnPeerJoined` → constructs `SteamTransport` → registers `Callback<P2PSessionRequest_t>`) can fire *after* the client's first `SendP2PPacket`. If no handler is registered at the moment the request posts, Steam drops the packet and never retries — the host never sees the Hello, so `OnHello` never fires and the lobby stalls. Fix: register a plugin-scope `Callback<P2PSessionRequest_t>` handler in `Awake` immediately after `SteamAPI.Init`, auto-accepting any incoming request. This closes the race window entirely — the handler is live before any lobby activity is possible.
+
+### Added — diagnostics
+
+- **`OnHello` entry log** on host: `OnHello: from <name> (steam=..., mod=...)`. Narrows future stalls to either "Hello never arrived" or "Hello arrived but broadcast failed".
+- **`P2P session auto-accepted from <id>`** log at the new plugin-scope handler, proving Steam delivered the first packet.
+
+## [0.3.0-alpha-preview4] — 2026-04-21 (superseded by preview5)
 
 Third hotfix respin. `preview3` added the host-side P2P-accept call and the auto-join UX, but pairing still deadlocked because the Update loop's pump list was wrong — the client's Hello packet sat unread in Steam's buffer forever. Also fixes a save-path bug (double `.binary` extension) that would have surfaced the instant pairing worked.
 
