@@ -1,3 +1,4 @@
+using FluentAssertions;
 using PCBSMultiplayer.Net;
 using PCBSMultiplayer.Net.Messages;
 using Xunit;
@@ -7,42 +8,43 @@ namespace PCBSMultiplayer.Tests.Net;
 public sealed class TransformUpdateRoundTripTests
 {
     [Fact]
-    public void Packs_and_unpacks_all_fields()
+    public void TransformUpdate_round_trips_all_fields()
     {
         var sent = new TransformUpdate
         {
-            Slot = 3,
-            PosX = 1.5f,
-            PosY = -2.25f,
-            PosZ = 100.125f,
-            Yaw = 270f,
-            Seq = 42u
+            Slot = 255,
+            PosX = float.MaxValue,
+            PosY = -1.1f,
+            PosZ = float.NaN,
+            Yaw = float.PositiveInfinity,
+            Seq = uint.MaxValue
         };
         var framed = Serializer.Pack(sent);
+        framed.Length.Should().Be(22); // 1 byte tag + 21 byte payload (1 + 4 + 4 + 4 + 4 + 4)
         var (tag, msg) = Serializer.Unpack(framed);
-        Assert.Equal(TypeTag.TransformUpdate, tag);
-        var got = Assert.IsType<TransformUpdate>(msg);
-        Assert.Equal(sent.Slot, got.Slot);
-        Assert.Equal(sent.PosX, got.PosX);
-        Assert.Equal(sent.PosY, got.PosY);
-        Assert.Equal(sent.PosZ, got.PosZ);
-        Assert.Equal(sent.Yaw, got.Yaw);
-        Assert.Equal(sent.Seq, got.Seq);
+        tag.Should().Be(TypeTag.TransformUpdate);
+        var got = msg.Should().BeOfType<TransformUpdate>().Subject;
+        got.Slot.Should().Be(sent.Slot);
+        got.PosX.Should().Be(sent.PosX);
+        got.PosY.Should().Be(sent.PosY);
+        float.IsNaN(got.PosZ).Should().BeTrue();
+        got.Yaw.Should().Be(sent.Yaw);
+        got.Seq.Should().Be(sent.Seq);
     }
 
     [Fact]
-    public void Zero_fields_roundtrip()
+    public void TransformUpdate_round_trips_zero_fields()
     {
         var sent = new TransformUpdate();
         var framed = Serializer.Pack(sent);
         var (tag, msg) = Serializer.Unpack(framed);
-        Assert.Equal(TypeTag.TransformUpdate, tag);
-        var got = Assert.IsType<TransformUpdate>(msg);
-        Assert.Equal(0, got.Slot);
-        Assert.Equal(0f, got.PosX);
-        Assert.Equal(0f, got.PosY);
-        Assert.Equal(0f, got.PosZ);
-        Assert.Equal(0f, got.Yaw);
-        Assert.Equal(0u, got.Seq);
+        tag.Should().Be(TypeTag.TransformUpdate);
+        var got = msg.Should().BeOfType<TransformUpdate>().Subject;
+        got.Slot.Should().Be((byte)0);
+        got.PosX.Should().Be(0f);
+        got.PosY.Should().Be(0f);
+        got.PosZ.Should().Be(0f);
+        got.Yaw.Should().Be(0f);
+        got.Seq.Should().Be(0u);
     }
 }
