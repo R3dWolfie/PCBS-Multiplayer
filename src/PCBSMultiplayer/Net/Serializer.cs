@@ -54,6 +54,14 @@ public static class Serializer
                 w.Write(x.SnapshotBytes);
                 break;
             case Bye x: w.Write(x.Reason); break;
+            case TransformUpdate x:
+                w.Write(x.Slot);
+                w.Write(x.PosX);
+                w.Write(x.PosY);
+                w.Write(x.PosZ);
+                w.Write(x.Yaw);
+                w.Write(x.Seq);
+                break;
             case MoneyChanged x: w.Write(x.NewTotal); break;
             case XPChanged x: w.Write(x.NewTotal); break;
             case TimeChanged x: w.Write(x.NewDayIndex); break;
@@ -129,6 +137,15 @@ public static class Serializer
         },
         TypeTag.Welcome => ReadWelcome(r),
         TypeTag.Bye => new Bye { Reason = r.ReadString() },
+        TypeTag.TransformUpdate => new TransformUpdate
+        {
+            Slot = r.ReadByte(),
+            PosX = r.ReadSingle(),
+            PosY = r.ReadSingle(),
+            PosZ = r.ReadSingle(),
+            Yaw = r.ReadSingle(),
+            Seq = r.ReadUInt32()
+        },
         TypeTag.MoneyChanged => new MoneyChanged { NewTotal = r.ReadInt64() },
         TypeTag.XPChanged => new XPChanged { NewTotal = r.ReadInt64() },
         TypeTag.TimeChanged => new TimeChanged { NewDayIndex = r.ReadInt32() },
