@@ -19,13 +19,22 @@ public static class Serializer
         return ms.ToArray();
     }
 
-    public static (TypeTag tag, IMessage message) Unpack(byte[] framed)
+    // Mono 2018 can't JIT call sites that reference ValueTuple<,>. Production (MessageRouter.Dispatch)
+    // uses the out-param overload; the tuple-returning version is kept only because xUnit tests
+    // deconstruct its result — test runtime is desktop .NET, where tuples are fine.
+    public static IMessage Unpack(byte[] framed, out TypeTag tag)
     {
         if (framed.Length < 1) throw new ArgumentException("frame too short");
         using var ms = new MemoryStream(framed, false);
         using var r = new BinaryReader(ms, Encoding.UTF8);
-        var tag = (TypeTag)r.ReadByte();
-        return (tag, ReadPayload(r, tag));
+        tag = (TypeTag)r.ReadByte();
+        return ReadPayload(r, tag);
+    }
+
+    public static (TypeTag tag, IMessage message) Unpack(byte[] framed)
+    {
+        var msg = Unpack(framed, out var tag);
+        return (tag, msg);
     }
 
     private static void WritePayload(BinaryWriter w, IMessage m)

@@ -17,7 +17,8 @@ public sealed class MessageRouter
     {
         try
         {
-            var (_, msg) = Serializer.Unpack(frame);
+            // out-param form avoids ValueTuple<,> in IL — Mono 2018 can't JIT tuple deconstruction.
+            var msg = Serializer.Unpack(frame, out _);
             if (_handlers.TryGetValue(msg.GetType(), out var h)) h(msg);
         }
         catch (NotSupportedException) { /* unknown tag — drop */ }

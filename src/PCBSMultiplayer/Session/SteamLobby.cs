@@ -34,6 +34,7 @@ public sealed class SteamLobby
 
     public void JoinLobby(CSteamID lobbyId, LobbyJoinedHandler onJoined)
     {
+        IsHost = false;
         _onJoined = onJoined;
         _onEnter ??= Callback<LobbyEnter_t>.Create(OnLobbyEnter);
         SteamMatchmaking.JoinLobby(lobbyId);
@@ -78,6 +79,9 @@ public sealed class SteamLobby
 
     private void OnLobbyEnter(LobbyEnter_t ev)
     {
+        // Steam fires LobbyEnter_t on the creator too (auto-join). If this is our own lobby we
+        // just created, skip — otherwise we'd spin up a phantom client session pointing at self.
+        if (IsHost && LobbyId.m_SteamID == ev.m_ulSteamIDLobby) return;
         LobbyId = new CSteamID(ev.m_ulSteamIDLobby);
         IsHost = false;
         var remote = SteamMatchmaking.GetLobbyData(LobbyId, VersionMetaKey);

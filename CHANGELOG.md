@@ -2,7 +2,18 @@
 
 All notable changes to PCBS Multiplayer. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer with `-rc` tags for pre-release builds awaiting the closing manual gate.
 
-## [0.3.0-alpha-preview] — 2026-04-21
+## [0.3.0-alpha-preview2] — 2026-04-21
+
+Hotfix respin of `0.3.0-alpha-preview`. The preview build shipped with two bugs that only surfaced once a host + client actually tried to exchange frames on two real Steam peers; surfaced during first live test with a friend. No feature changes.
+
+### Fixed — release-blocking
+
+- **`MessageRouter.Dispatch` crashed on every received frame** with `TypeLoadException: Could not load type 'System.ValueTuple\`2'` under Unity 2018.4's Mono. `Serializer.Unpack` returned a C# tuple and `Dispatch` deconstructed it; the resulting IL references `ValueTuple<,>` which Mono 2018 refuses to JIT even with `System.ValueTuple.dll` shipped alongside. Net effect: no peer-to-peer message dispatched in either direction — client's `LobbyState` handler never fired (panel stuck at "Waiting for host's lobby state…"), host's `OnHello` never fired (friend never appeared in host's player list), and `SessionManager.Tick` spammed the log every frame until the game froze. Added an out-param `Unpack(frame, out tag)` overload used by `Dispatch`; the existing tuple-returning overload is retained for xUnit test call-sites (which run on desktop .NET where tuples are fine). This error had been latent since Plan 2 — `0.2.0-rc1` never loaded, so nobody hit it until the `0.3.0-alpha-preview` build actually executed a real peer exchange.
+- **`SteamLobby` spun up a phantom client session on the host** after any prior Join had registered the `LobbyEnter_t` callback. Steam fires `LobbyEnter_t` on lobby *creators* too (the creator is auto-joined), so once `_onEnter` was registered, every subsequent `CreateLobby` re-triggered `OnLobbyEnter` on the host, which in turn invoked the stale `_onJoined` handler and created a `ClientSession` pointed at the user's own `SteamID`. Symptoms: `"Client session started; host <your own steamID>"` log line firing right after every `Host session started`, plus the phantom client's Tick compounding the Bug 1 crash above on every frame. Fixed: `OnLobbyEnter` early-returns when `IsHost && LobbyId == ev.m_ulSteamIDLobby` (we created this very lobby), and `JoinLobby` resets `IsHost = false` so the guard can't misfire against a fresh incoming join.
+
+## [0.3.0-alpha-preview] — 2026-04-21 (withdrawn — see preview2)
+
+> **Do not install `0.3.0-alpha-preview`.** Peer comms are dead — the message dispatcher throws `TypeLoadException` on every received frame under Mono 2018. `0.3.0-alpha-preview2` is the same feature set with the dispatcher rewritten to not touch `ValueTuple<,>`.
 
 Pre-release cut of the Plan 3 join-loop work for early peer-pairing tests. Not yet gated on M4b (two-machine closing validation), so expect rough edges. Published specifically so a host + friend can install matching binaries and exercise the save-sync path together; promote to `0.3.0-alpha` once M4b passes.
 
