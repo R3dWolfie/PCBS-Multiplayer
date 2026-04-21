@@ -66,24 +66,37 @@ public sealed class ClientSession
 
     private void OnWelcome(Welcome w)
     {
-        var snapshot = SnapshotBuilder.Deserialize(w.SnapshotBytes);
-        _mgr.World.Money = snapshot.Money;
-        _mgr.World.XP = snapshot.XP;
-        _mgr.World.DayIndex = snapshot.DayIndex;
-
-        var available = new List<SnapshotBuilder.JobDto>();
-        foreach (var j in snapshot.JobBoard.Available)
-            available.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
-        var claimed = new List<SnapshotBuilder.JobDto>();
-        foreach (var j in snapshot.JobBoard.Claimed.Values)
-            claimed.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
-        var completed = new List<SnapshotBuilder.JobDto>();
-        foreach (var j in snapshot.JobBoard.Completed)
-            completed.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
-
-        _mgr.World.JobBoard.ReplaceAll(available, claimed, completed);
+        // Flip IsLive FIRST. Patches gate on !IsLive; if snapshot apply below throws, every
+        // client-side spend/claim would route locally instead of through the host.
+        // Plan 3 transfers the whole save anyway, so Welcome snapshot is mostly a redundant
+        // baseline — failing to apply it is not a reason to sit disconnected from sync.
         _mgr.LocalSlot = w.AssignedSlot;
         _mgr.IsLive = true;
+        Log.LogInfo("OnWelcome: IsLive=true, slot=" + w.AssignedSlot + ", snapshot bytes=" + (w.SnapshotBytes == null ? 0 : w.SnapshotBytes.Length));
+
+        try
+        {
+            var snapshot = SnapshotBuilder.Deserialize(w.SnapshotBytes);
+            _mgr.World.Money = snapshot.Money;
+            _mgr.World.XP = snapshot.XP;
+            _mgr.World.DayIndex = snapshot.DayIndex;
+
+            var available = new List<SnapshotBuilder.JobDto>();
+            foreach (var j in snapshot.JobBoard.Available)
+                available.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
+            var claimed = new List<SnapshotBuilder.JobDto>();
+            foreach (var j in snapshot.JobBoard.Claimed.Values)
+                claimed.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
+            var completed = new List<SnapshotBuilder.JobDto>();
+            foreach (var j in snapshot.JobBoard.Completed)
+                completed.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
+
+            _mgr.World.JobBoard.ReplaceAll(available, claimed, completed);
+        }
+        catch (Exception ex)
+        {
+            Log.LogWarning("OnWelcome: snapshot apply failed (non-fatal, session already live): " + ex.Message);
+        }
     }
 
     private void OnBye(Bye b)
