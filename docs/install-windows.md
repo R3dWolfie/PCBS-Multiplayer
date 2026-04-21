@@ -93,10 +93,6 @@ Your game becomes authoritative for money and the job board. Your friend's clien
 
 **In `0.2.0-rc1`:** save sync isn't implemented yet — you and the host both need to manually pick the *same* save file from the main menu. Save-bytes transfer arrives in `0.3.0`.
 
-### Panic hotkey
-
-If multiplayer misbehaves in-game, **hold F7 for 3 seconds**. This disconnects the transport and writes `EnableMultiplayer = false` to the mod config so the next launch boots as vanilla single-player. A top-right yellow-on-black status pill shows the countdown.
-
 ## Troubleshooting
 
 **Buttons don't appear on the main menu**
@@ -106,7 +102,7 @@ Confirm the DLL is at `BepInEx\plugins\PCBSMultiplayer.dll` and that the file wa
 The button only works when you have a pending Steam invite from your host. Ask your host to click **Host Multiplayer** and invite you via the overlay; then click **Join Multiplayer** again. (In future versions this will show a toast instead of silently no-op'ing.)
 
 **"Receiving host's save data…" hangs forever (0.3.0+ only)**
-Host may have crashed or quit mid-transfer. Hold **F7** for 3 seconds to panic-disconnect, then relaunch vanilla.
+Host may have crashed or quit mid-transfer.
 
 **Version mismatch between host and client**
 Both machines must run the **same mod version** and the **same PCBS build**. Mismatched versions will refuse to form a session. Check the version string in `LogOutput.log` on both machines.

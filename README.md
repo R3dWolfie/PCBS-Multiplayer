@@ -78,10 +78,6 @@ Your game becomes authoritative: money, XP, job board, and (in `0.3.0+`) invento
 
 **In `0.2.0-rc1`:** you and the host both need to pick the *same* save file from the main menu — there's no save transfer yet. Upgrade to `0.3.0-alpha` when it ships for automatic save-bytes transfer.
 
-### Panic hotkey
-
-If multiplayer misbehaves, **hold F7 for 3 seconds**. This disconnects the transport and writes `EnableMultiplayer = false` to the mod config so the next launch boots as vanilla single-player.
-
 ## Uninstalling
 
 Delete `BepInEx/plugins/PCBSMultiplayer.dll`. To remove BepInEx entirely, also delete `BepInEx/`, `doorstop_config.ini`, and `winhttp.dll` from the game root.

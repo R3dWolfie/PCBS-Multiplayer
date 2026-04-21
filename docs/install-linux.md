@@ -108,10 +108,6 @@ Your game is authoritative for money and the job board. Your friend's client mir
 
 **In `0.2.0-rc1`:** save sync isn't implemented — you and the host both pick the *same* save file from the main menu. Save-bytes transfer arrives in `0.3.0`.
 
-### Panic hotkey
-
-Hold **F7 for 3 seconds** in-game to disconnect and boot vanilla on the next launch.
-
 ## Troubleshooting
 
 **Main-menu buttons don't appear**
@@ -133,7 +129,7 @@ Check the log for plugin load errors. If you see "type-load" errors, confirm you
 Works only when you have a pending Steam invite. Ask the host to click Host Multiplayer and invite you via the overlay first.
 
 **"Receiving host's save data…" hangs forever (0.3.0+ only)**
-Host may have crashed mid-transfer. Hold F7 for 3 seconds to panic-disconnect.
+Host may have crashed mid-transfer.
 
 **Version mismatch between host and client**
 Both sides need the same mod version. Check `LogOutput.log` on both machines for the version string. Windows and Linux builds of the same mod version are compatible.
