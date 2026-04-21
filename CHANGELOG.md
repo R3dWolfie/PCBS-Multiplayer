@@ -2,6 +2,13 @@
 
 All notable changes to PCBS Multiplayer. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer with `-rc` tags for pre-release builds awaiting the closing manual gate.
 
+## [0.3.0-alpha-preview14] — 2026-04-22
+
+UX cleanup. Functional behavior is identical to preview13 — two-machine money + job-claim sync unchanged; just a disruptive on-screen label removed.
+
+### Changed
+- **Removed the top-right "F7 hold 3s - Disable mod" on-screen pill.** The panic hotkey still works silently: hold F7 for 3 seconds to disconnect and flip `EnableMultiplayer = false`. Docs already don't advertise the hotkey — it's an escape hatch for advanced users, not a discoverable UI control.
+
 ## [0.3.0-alpha-preview13] — 2026-04-21
 
 Twelfth hotfix respin. Two-machine play confirmed preview12's money fix worked — client purchases now correctly debit the host's real cash. Same design flaw still sat on the job-claim path: `HostSession.OnClaimJob` arbitrated against the unseeded `WorldState.JobBoard` mirror, so client-side Accept on any job silently failed with `already_claimed_or_missing`. Additionally, even if the host did accept a claim, clients had no mechanism to flip the job's local `Job.m_status` from NEW to ACCEPTED — PCBS's job-board UI on the client would still show the job as available.
