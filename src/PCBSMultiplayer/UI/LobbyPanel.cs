@@ -21,6 +21,7 @@ public sealed class LobbyPanel : MonoBehaviour
     private string _selectedSaveName = "";
     private string _selectedSceneName = "";
     private string _errorMessage = "";
+    private string _infoMessage = "";
     private string _pendingSceneName = "";
 
     private struct SaveEntry { public string Name; public string Display; public string Scene; public string GameMode; public int Cash; public int Kudos; }
@@ -55,6 +56,7 @@ public sealed class LobbyPanel : MonoBehaviour
         p._isHost = true;
         p._visible = true;
         p._errorMessage = "";
+        p._infoMessage = "";
         p._pendingSceneName = "";
         if (p._players == null) p._players = new List<LobbyPlayer>();
         if (p._saves == null) p._saves = new List<SaveEntry>();
@@ -70,7 +72,8 @@ public sealed class LobbyPanel : MonoBehaviour
         var p = EnsureInstance();
         p._isHost = false;
         p._visible = true;
-        p._errorMessage = "Waiting for host's lobby state…";
+        p._errorMessage = "";
+        p._infoMessage = "Waiting for host's lobby state…";
         p._pendingSceneName = "";
         p._players.Clear();
         try
@@ -91,6 +94,7 @@ public sealed class LobbyPanel : MonoBehaviour
     {
         if (Instance == null || Instance._isHost) return;
         Instance._errorMessage = "";
+        Instance._infoMessage = "";
         Instance._players = s.Players;
         Instance._selectedSaveName = s.SelectedSaveName;
         Instance._selectedSceneName = s.SelectedSceneName;
@@ -100,7 +104,8 @@ public sealed class LobbyPanel : MonoBehaviour
     {
         if (Instance == null || Instance._isHost) return;
         Instance._pendingSceneName = s.SceneName;
-        Instance._errorMessage = "Receiving host's save data…";
+        Instance._errorMessage = "";
+        Instance._infoMessage = "Receiving host's save data…";
         if (Log != null) Log.LogInfo("Client received StartGame; waiting for SaveTransferEnd. scene=\"" + s.SceneName + "\"");
         // actual load fires from ClientSession.SaveReady (wired in SessionLifecycle.OnLobbyJoined)
     }
@@ -117,6 +122,7 @@ public sealed class LobbyPanel : MonoBehaviour
         }
         if (Log != null) Log.LogInfo("SaveReady(\"" + saveName + "\"); loading into \"" + scene + "\".");
         Instance._errorMessage = "";
+        Instance._infoMessage = "";
         Instance.TryLoadLocally(saveName, scene);
     }
 
@@ -589,12 +595,18 @@ public sealed class LobbyPanel : MonoBehaviour
         float footerY = y + winH - footerH;
         FillRect(new Rect(x, footerY - 2f, winW, 2f), _dividerTex);
 
-        // Error message strip
+        // Error message strip (red) — errors take priority over info
         if (!string.IsNullOrEmpty(_errorMessage))
         {
             var errSt = new GUIStyle(_labelStyle); errSt.normal.textColor = TextError; errSt.fontSize = 15;
             FillRect(new Rect(x + 24f, footerY - 40f, winW - 48f, 30f), SolidTex(new Color(0.3f, 0.08f, 0.1f, 0.8f)));
             GUI.Label(new Rect(x + 36f, footerY - 40f, winW - 72f, 30f), "⚠  " + _errorMessage, errSt);
+        }
+        else if (!string.IsNullOrEmpty(_infoMessage))
+        {
+            var infoSt = new GUIStyle(_labelStyle); infoSt.normal.textColor = Accent; infoSt.fontSize = 15;
+            FillRect(new Rect(x + 24f, footerY - 40f, winW - 48f, 30f), SolidTex(new Color(0.08f, 0.14f, 0.26f, 0.8f)));
+            GUI.Label(new Rect(x + 36f, footerY - 40f, winW - 72f, 30f), "ℹ  " + _infoMessage, infoSt);
         }
 
         // Footer buttons
