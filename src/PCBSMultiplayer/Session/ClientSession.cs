@@ -93,6 +93,20 @@ public sealed class ClientSession
         _mgr.Transport.Send(Serializer.Pack(hello));
     }
 
+    private long _lastHeartbeatSentMs;
+    private const long HeartbeatIntervalMs = 1000;
+
+    // Without periodic heartbeats, the host's SessionManager times out the client after
+    // TimeoutMs and grace-expires the transport, cutting off host-to-client broadcasts
+    // (MoneyChanged, JobBoardDelta, etc.) while leaving client-to-host intact. Spends
+    // would still debit the host's money but the client's UI would stay frozen.
+    public void MaybeSendHeartbeat(long nowMs)
+    {
+        if (nowMs - _lastHeartbeatSentMs < HeartbeatIntervalMs) return;
+        _lastHeartbeatSentMs = nowMs;
+        _mgr.Transport.Send(Serializer.Pack(new Heartbeat { SentAtMs = nowMs }));
+    }
+
     private void OnWelcome(Welcome w)
     {
         // Flip IsLive FIRST. Patches gate on !IsLive; if snapshot apply below throws, every

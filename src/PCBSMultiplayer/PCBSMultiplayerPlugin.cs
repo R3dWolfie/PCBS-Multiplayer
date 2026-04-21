@@ -18,7 +18,7 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
     // PluginVersion must be System.Version-parseable (digits+dots only) — BepInEx 5.x rejects
     // SemVer pre-release suffixes like "-rc1" with "Skipping type ... version is invalid".
     public const string PluginVersion = "0.3.0.0";
-    public const string DisplayVersion = "0.3.0-alpha-preview14";
+    public const string DisplayVersion = "0.3.0-alpha-preview15";
 
     public static PCBSMultiplayerPlugin Instance { get; private set; }
 
@@ -115,7 +115,9 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
         }
 
         mgr.Tick();
-        mgr.Heartbeat((long)(Time.unscaledTime * 1000f));
+        long nowMs = (long)(Time.unscaledTime * 1000f);
+        if (mgr.Role == SessionRole.Client && mgr.IsLive) mgr.Client.MaybeSendHeartbeat(nowMs);
+        mgr.Heartbeat(nowMs);
     }
 
     private void OnDestroy()

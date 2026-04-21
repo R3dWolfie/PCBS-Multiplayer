@@ -2,6 +2,14 @@
 
 All notable changes to PCBS Multiplayer. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer with `-rc` tags for pre-release builds awaiting the closing manual gate.
 
+## [0.3.0-alpha-preview15] — 2026-04-22
+
+Client→host heartbeat fix. Two-machine playtest with a second friend surfaced that host→client broadcasts (money, jobs) silently stopped reaching the client a few seconds into gameplay — host's wallet would debit correctly on client purchases, but the client's UI stayed frozen at the save-load value. The log showed every `BroadcastMoneyChanged` leaving with `recipients=0`.
+
+### Fixed — release-blocking
+
+- **Client now sends a `Heartbeat` frame every 1 second (`ClientSession.MaybeSendHeartbeat`, driven from `PCBSMultiplayerPlugin.Update`).** Root cause: `SessionManager.Heartbeat` treats any client silent for >3s as timed-out and fires `HostSession.RemoveClient`, which starts a 30s grace timer and then removes the client's transport from `HostSession._transports`. Dispatch uses a different list (`SessionManager._clientTransports`) that the timeout never touches, so client→host frames kept working (client spends reached the host and correctly debited `CareerStatus`) but host→client broadcasts went to an empty `_transports` dict — `MoneyChanged`, `JobBoardDelta`, `LobbyState`, save chunks, everything. The `Heartbeat` message type was already defined in `SessionMessages.cs` and tested via `HeartbeatTests`, but nothing in prod actually sent one; the client was mute post-Hello. Now every Update tick, the client checks its elapsed since last heartbeat and if ≥1000ms, sends a `Heartbeat { SentAtMs = nowMs }`. The host's `SessionManager.Tick` already refreshes `_lastSeenMs[transport]` on every inbound frame, so the timeout never fires against a live peer.
+
 ## [0.3.0-alpha-preview14] — 2026-04-22
 
 UX cleanup. Functional behavior is identical to preview13 — two-machine money + job-claim sync unchanged; just a disruptive on-screen label removed.
