@@ -22,6 +22,30 @@ public sealed class ClientSession
     public ClaimJobResult LastClaimResult { get; private set; }
     public SpendMoneyResult LastSpendMoneyResult { get; private set; }
 
+    // Delegate seam for applying a JobBoardDelta to PCBS's CareerStatus. Default is a no-op so
+    // xUnit tests — which don't ship Assembly-CSharp.dll — don't JIT the CareerStatus reference.
+    // PCBSMultiplayerPlugin.Awake swaps this to ApplyJobDeltaToCareerStatus in prod.
+    public delegate void ApplyJobDeltaFn(JobBoardDelta delta);
+    public static ApplyJobDeltaFn ApplyJobDelta = NoopApplyJobDelta;
+    private static void NoopApplyJobDelta(JobBoardDelta delta) { }
+
+    public static void ApplyJobDeltaToCareerStatus(JobBoardDelta delta)
+    {
+        var career = CareerStatus.Get();
+        if (career == null) return;
+        foreach (var dto in delta.Claimed)
+        {
+            if (!int.TryParse(dto.Id, out var id)) continue;
+            var job = career.GetJob(id);
+            if (job == null) continue;
+            if (job.m_status != global::Job.Status.NEW && job.m_status != global::Job.Status.READ) continue;
+            Log.LogInfo("ApplyJobDelta: flipping local job " + id + " NEW/READ -> ACCEPTED");
+            SessionManager.ApplyingRemoteDelta = true;
+            try { job.OnAccept(_autoAccepting: true); }
+            finally { SessionManager.ApplyingRemoteDelta = false; }
+        }
+    }
+
     private readonly SaveSyncReassembler _saveSync = new SaveSyncReassembler();
     private string _savesDirAbsolute = "";
     private ulong _lobbyId;
@@ -44,6 +68,11 @@ public sealed class ClientSession
         {
             Log.LogInfo("OnJobBoardDelta: available=" + d.Available.Count + " claimed=" + d.Claimed.Count + " completed=" + d.Completed.Count);
             DeltaApplier.Apply(_mgr.World, d);
+            // Mirror the claim state into PCBS's own CareerStatus so the client's job-board UI
+            // actually moves a job from "NEW" to "ACCEPTED" when the host approves. Delegated
+            // through ApplyJobDelta so xUnit tests don't JIT the PCBS reference.
+            try { ApplyJobDelta(d); }
+            catch (Exception ex) { Log.LogError("ApplyJobDelta: " + ex.Message); }
         });
         _mgr.Router.On<SpendMoneyResult>(r => LastSpendMoneyResult = r);
         _mgr.Router.On<MoneyChanged>(OnMoneyChanged);

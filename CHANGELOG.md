@@ -2,7 +2,22 @@
 
 All notable changes to PCBS Multiplayer. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer with `-rc` tags for pre-release builds awaiting the closing manual gate.
 
-## [0.3.0-alpha-preview12] — 2026-04-21
+## [0.3.0-alpha-preview13] — 2026-04-21
+
+Twelfth hotfix respin. Two-machine play confirmed preview12's money fix worked — client purchases now correctly debit the host's real cash. Same design flaw still sat on the job-claim path: `HostSession.OnClaimJob` arbitrated against the unseeded `WorldState.JobBoard` mirror, so client-side Accept on any job silently failed with `already_claimed_or_missing`. Additionally, even if the host did accept a claim, clients had no mechanism to flip the job's local `Job.m_status` from NEW to ACCEPTED — PCBS's job-board UI on the client would still show the job as available.
+
+### Fixed — release-blocking
+
+- **`HostSession.OnClaimJob` now arbitrates against `CareerStatus` via the `ClaimAuthority` delegate seam (same pattern as preview12's `SpendAuthority`).** `TryClaimViaCareerStatus` parses the jobId to int, looks up the real PCBS `Job` via `CareerStatus.Get().GetJob(id)`, verifies `m_status` is `NEW` or `READ`, and calls `job.OnAccept(_autoAccepting: true)` with `SessionManager.ApplyingRemoteDelta = true` to suppress the re-entrant `OnAcceptPatch.Postfix` broadcast (which would read the empty mirror).
+- **`HostSession.BroadcastJobBoardDelta` now rebuilds the delta from `CareerStatus` via the `JobDeltaFill` delegate seam.** PCBS's `CareerStatus.m_jobs` is the source of truth for Job status; per-slot attribution lives in a new `HostSession._jobClaimedBySlot` side-map populated on successful `OnClaimJob`. `JobDeltaFill` walks `GetJobs()` + `GetDoneJobs()`, slots each into Available / Claimed / Completed based on `Job.Status`, and merges the slot map. Tests fall through to the old mirror path via the no-op default delegate.
+- **`ClientSession.OnJobBoardDelta` now also applies claimed entries to the client's own `CareerStatus` via the `ApplyJobDelta` delegate seam.** For each claimed `JobDto`, the client looks up its local `Job` by id, and if `m_status` is still NEW/READ, calls `job.OnAccept(_autoAccepting: true)` with `ApplyingRemoteDelta = true`. PCBS's local job-board UI now moves the claimed job from "available" to "in progress" the moment the host approves.
+
+### Known-good assumptions
+
+- All three new authorities (`ClaimAuthority`, `JobDeltaFill`, `ApplyJobDelta`) default to no-op implementations so xUnit tests — which don't ship Assembly-CSharp.dll — don't fail at JIT prep. `PCBSMultiplayerPlugin.Awake` swaps all three to their CareerStatus-backed impls in prod. All 79 xUnit tests still green.
+- Quit/Release and Complete/Collect paths remain host-side-only (mirror-driven, same pre-preview13 behavior). If a client quits a claimed job, their local PCBS rolls back but the host and other clients don't see it. Scoped for a follow-up preview; claim-and-hold is the alpha-gate path.
+
+## [0.3.0-alpha-preview12] — 2026-04-21 (superseded by preview13)
 
 Eleventh hotfix respin. Two-machine play confirmed preview11's Welcome-send fix landed — client reached `OnWelcome: IsLive=true, slot=1`, and subsequent broadcasts flowed. But purchases by either player left both balances unchanged, and the host log showed `[Info :HostSession] BroadcastMoneyChanged: total=1717` (host spending its own cash, fine) with no accompanying client-spend handling. Root cause: `HostSession.OnSpendMoney` arbitrated against `_mgr.World.Money`, a mirror that's only written by `AddCashPatch`/`SpendCashPatch` postfixes — it's **never seeded from the loaded save**, so it reads 0 at session start and rejects every client purchase with `insufficient_funds`.
 

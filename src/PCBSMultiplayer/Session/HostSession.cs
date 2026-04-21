@@ -25,6 +25,10 @@ public sealed class HostSession
     private readonly HashSet<int> _inGrace = new();
     private const long GraceMs = 30000;
     private long _lastHeartbeatMs;
+    // CareerStatus doesn't track who claimed each job — that's multiplayer-only metadata.
+    // Keyed by Job.GetId().ToString(); written on successful OnClaimJob; read when building
+    // a JobBoardDelta from CareerStatus so clients see the per-slot attribution.
+    private readonly Dictionary<string, int> _jobClaimedBySlot = new();
 
     public Dictionary<int, ClientInfo> Clients => _clients;
     public GraceTimer GraceTimer => _grace;
@@ -102,7 +106,18 @@ public sealed class HostSession
     private void OnClaimJob(ITransport transport, ClaimJobRequest req)
     {
         if (!_slotByTransport.TryGetValue(transport, out var slot)) return;
-        var ok = _mgr.World.JobBoard.TryClaim(req.JobId, slot);
+        var auth = ClaimAuthority(req.JobId, slot);
+        bool ok;
+        if (auth.Usable)
+        {
+            ok = auth.Accepted;
+            if (ok) _jobClaimedBySlot[req.JobId] = slot;
+        }
+        else
+        {
+            // Test / career-unavailable path: arbitrate on the WorldState mirror directly.
+            ok = _mgr.World.JobBoard.TryClaim(req.JobId, slot);
+        }
         transport.Send(Serializer.Pack(new ClaimJobResult
         {
             RequestId = req.RequestId,
@@ -153,6 +168,103 @@ public sealed class HostSession
         catch { return default; }
     }
 
+    // Job-claim authority seam — same pattern as SpendAuthority. Default returns Usable=false
+    // so tests fall through to the WorldState.JobBoard mirror path. Plugin.Awake swaps to
+    // TryClaimViaCareerStatus in prod. Signature takes (jobId, requestingSlot) and returns
+    // ClaimResult so the caller can also update _jobClaimedBySlot with the requester's slot.
+    public delegate ClaimResult TryClaimAuthority(string jobId, int slot);
+    public static TryClaimAuthority ClaimAuthority = NoopClaimAuthority;
+    private static ClaimResult NoopClaimAuthority(string jobId, int slot) => default;
+
+    public static ClaimResult TryClaimViaCareerStatus(string jobId, int slot)
+    {
+        try
+        {
+            var career = CareerStatus.Get();
+            if (career == null) return default;
+            if (!int.TryParse(jobId, out var id)) return new ClaimResult { Usable = true, Accepted = false };
+            var job = career.GetJob(id);
+            if (job == null) return new ClaimResult { Usable = true, Accepted = false };
+            // NEW/READ = unclaimed and claimable. Anything else is already in-progress or done.
+            if (job.m_status != global::Job.Status.NEW && job.m_status != global::Job.Status.READ)
+                return new ClaimResult { Usable = true, Accepted = false };
+            // Invoke PCBS's Job.OnAccept to flip m_status to ACCEPTED/IN_TRANSIT and fire the
+            // side effects (WorkshopController.SpawnJobPostItAtAnySlot, calendar scheduling).
+            // ApplyingRemoteDelta=true suppresses OnAcceptPatch.Postfix's attempt to re-broadcast
+            // a JobBoardDelta from our empty mirror — OnClaimJob does its own broadcast built
+            // from CareerStatus + _jobClaimedBySlot, which reflects the correct claimer slot.
+            SessionManager.ApplyingRemoteDelta = true;
+            try { job.OnAccept(_autoAccepting: true); }
+            finally { SessionManager.ApplyingRemoteDelta = false; }
+            return new ClaimResult { Usable = true, Accepted = true };
+        }
+        catch { return default; }
+    }
+
+    // Delta-build authority seam — rebuilds the JobBoardDelta from CareerStatus + _jobClaimedBySlot
+    // instead of the unseeded mirror. Default returns false so BroadcastJobBoardDelta falls
+    // through to the mirror, keeping tests deterministic. Uses out-params (not tuple) to avoid
+    // ValueTuple, which Mono 2018 can't load.
+    public delegate bool FillJobDeltaAuthority(
+        Dictionary<string, int> claimedBySlot,
+        List<SnapshotBuilder.JobDto> available,
+        List<SnapshotBuilder.JobDto> claimed,
+        List<SnapshotBuilder.JobDto> completed);
+    public static FillJobDeltaAuthority JobDeltaFill = NoopFillJobDelta;
+    private static bool NoopFillJobDelta(
+        Dictionary<string, int> claimedBySlot,
+        List<SnapshotBuilder.JobDto> available,
+        List<SnapshotBuilder.JobDto> claimed,
+        List<SnapshotBuilder.JobDto> completed) => false;
+
+    public static bool FillJobDeltaFromCareerStatus(
+        Dictionary<string, int> claimedBySlot,
+        List<SnapshotBuilder.JobDto> available,
+        List<SnapshotBuilder.JobDto> claimed,
+        List<SnapshotBuilder.JobDto> completed)
+    {
+        try
+        {
+            var career = CareerStatus.Get();
+            if (career == null) return false;
+            foreach (var job in career.GetJobs())
+            {
+                string id = job.GetId().ToString();
+                var dto = new SnapshotBuilder.JobDto { Id = id, ClaimedBySlot = -1 };
+                switch (job.m_status)
+                {
+                    case global::Job.Status.NEW:
+                    case global::Job.Status.READ:
+                        available.Add(dto);
+                        break;
+                    case global::Job.Status.IN_TRANSIT:
+                    case global::Job.Status.ACCEPTED:
+                    case global::Job.Status.FINISHED:
+                        dto.ClaimedBySlot = claimedBySlot.TryGetValue(id, out var s) ? s : 0;
+                        claimed.Add(dto);
+                        break;
+                    case global::Job.Status.COLLECTED:
+                    case global::Job.Status.DONE:
+                        dto.ClaimedBySlot = claimedBySlot.TryGetValue(id, out var cs) ? cs : 0;
+                        completed.Add(dto);
+                        break;
+                }
+            }
+            foreach (var job in career.GetDoneJobs())
+            {
+                string id = job.GetId().ToString();
+                var dto = new SnapshotBuilder.JobDto
+                {
+                    Id = id,
+                    ClaimedBySlot = claimedBySlot.TryGetValue(id, out var s) ? s : 0,
+                };
+                completed.Add(dto);
+            }
+            return true;
+        }
+        catch { return false; }
+    }
+
     private void OnSpendMoney(ITransport transport, SpendMoneyRequest req)
     {
         // PCBS's CareerStatus is authoritative — WorldState.Money is a mirror that's never
@@ -199,14 +311,21 @@ public sealed class HostSession
     public void BroadcastJobBoardDelta()
     {
         var available = new List<SnapshotBuilder.JobDto>();
-        foreach (var j in _mgr.World.JobBoard.Available)
-            available.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
         var claimed = new List<SnapshotBuilder.JobDto>();
-        foreach (var j in _mgr.World.JobBoard.Claimed.Values)
-            claimed.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
         var completed = new List<SnapshotBuilder.JobDto>();
-        foreach (var j in _mgr.World.JobBoard.Completed)
-            completed.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
+
+        // Prod path: rebuild from CareerStatus (source of truth for PCBS job state) + side-map
+        // for per-slot attribution. Test path (authority returns false): use the mirror, which
+        // test harnesses populate via AddAvailable/TryClaim directly.
+        if (!JobDeltaFill(_jobClaimedBySlot, available, claimed, completed))
+        {
+            foreach (var j in _mgr.World.JobBoard.Available)
+                available.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
+            foreach (var j in _mgr.World.JobBoard.Claimed.Values)
+                claimed.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
+            foreach (var j in _mgr.World.JobBoard.Completed)
+                completed.Add(new SnapshotBuilder.JobDto { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot });
+        }
 
         var delta = new JobBoardDelta { Available = available, Claimed = claimed, Completed = completed };
         var frame = Serializer.Pack(delta);
@@ -280,4 +399,10 @@ public struct SpendResult
     public bool Usable;   // Authority responded (false = caller should fall back to mirror)
     public bool Accepted; // Spend succeeded
     public long NewTotal; // Authority's post-spend balance (only meaningful when Usable=true && Accepted=true)
+}
+
+public struct ClaimResult
+{
+    public bool Usable;   // Authority responded (false = caller should fall back to mirror)
+    public bool Accepted; // Claim succeeded
 }

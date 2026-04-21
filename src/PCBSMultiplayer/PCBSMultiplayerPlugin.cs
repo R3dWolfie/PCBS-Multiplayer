@@ -18,7 +18,7 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
     // PluginVersion must be System.Version-parseable (digits+dots only) — BepInEx 5.x rejects
     // SemVer pre-release suffixes like "-rc1" with "Skipping type ... version is invalid".
     public const string PluginVersion = "0.3.0.0";
-    public const string DisplayVersion = "0.3.0-alpha-preview12";
+    public const string DisplayVersion = "0.3.0-alpha-preview13";
 
     public static PCBSMultiplayerPlugin Instance { get; private set; }
 
@@ -70,10 +70,14 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
             _harmony = new Harmony(PluginGuid);
             _harmony.PatchAll(typeof(PCBSMultiplayerPlugin).Assembly);
 
-            // Swap HostSession's SpendMoney authority to the real CareerStatus path now that
-            // BepInEx has resolved Assembly-CSharp. The default is a no-op so xUnit tests
-            // (which don't ship Assembly-CSharp.dll) don't JIT the CareerStatus reference.
+            // Swap HostSession's state authorities from their test-safe defaults to the real
+            // CareerStatus-backed paths now that BepInEx has resolved Assembly-CSharp. The
+            // defaults are no-ops so xUnit tests — which don't ship Assembly-CSharp.dll — don't
+            // JIT the CareerStatus references.
             Session.HostSession.SpendAuthority = Session.HostSession.TrySpendViaCareerStatus;
+            Session.HostSession.ClaimAuthority = Session.HostSession.TryClaimViaCareerStatus;
+            Session.HostSession.JobDeltaFill = Session.HostSession.FillJobDeltaFromCareerStatus;
+            Session.ClientSession.ApplyJobDelta = Session.ClientSession.ApplyJobDeltaToCareerStatus;
 
             Session.SessionLifecycle.Init();
 
