@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
@@ -141,7 +142,12 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
             }
 
             if (removedFiles > 0 || removedDirs > 0)
-                Logger.LogInfo("Swept " + removedFiles + " stale mp-*.binary file(s) and " + removedDirs + " backup-mp-*/ dir(s) from " + savesDir);
+            {
+                var parts = new List<string>(2);
+                if (removedFiles > 0) parts.Add(removedFiles + " mp-*.binary file(s)");
+                if (removedDirs > 0) parts.Add(removedDirs + " backup-mp-*/ dir(s)");
+                Logger.LogInfo("Swept stale " + string.Join(" + ", parts.ToArray()) + " from " + savesDir);
+            }
         }
         catch (Exception ex) { Logger.LogWarning("SweepStaleMpSaves failed: " + ex.Message); }
     }
