@@ -109,6 +109,10 @@ public static class SessionLifecycle
         {
             mgr.Host.ClientAccepted -= OnClientAccepted;
         }
+        if (mgr != null && mgr.Role == SessionRole.Client && mgr.Client != null)
+        {
+            mgr.Client.SaveReady -= LobbyPanel.OnSaveReady;
+        }
         SessionManager.Current = null;
         if (_lobby.LobbyId != CSteamID.Nil) SteamMatchmaking.LeaveLobby(_lobby.LobbyId);
         LobbyPanel.Hide();

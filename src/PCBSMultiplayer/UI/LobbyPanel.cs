@@ -55,6 +55,7 @@ public sealed class LobbyPanel : MonoBehaviour
         p._isHost = true;
         p._visible = true;
         p._errorMessage = "";
+        p._pendingSceneName = "";
         if (p._players == null) p._players = new List<LobbyPlayer>();
         if (p._saves == null) p._saves = new List<SaveEntry>();
         try { p.RefreshPlayers(); }
@@ -70,6 +71,7 @@ public sealed class LobbyPanel : MonoBehaviour
         p._isHost = false;
         p._visible = true;
         p._errorMessage = "";
+        p._pendingSceneName = "";
         p._players.Clear();
         try
         {
@@ -106,6 +108,7 @@ public sealed class LobbyPanel : MonoBehaviour
     {
         if (Instance == null) return;
         string scene = Instance._pendingSceneName;
+        Instance._pendingSceneName = "";
         if (string.IsNullOrEmpty(scene))
         {
             if (Log != null) Log.LogWarning("SaveReady but no pending scene; ignoring.");
