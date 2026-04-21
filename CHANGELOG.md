@@ -2,6 +2,36 @@
 
 All notable changes to PCBS Multiplayer. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer with `-rc` tags for pre-release builds awaiting the closing manual gate.
 
+## [Unreleased] — Plan 3 (Join Loop)
+
+Implementation complete for tasks P3.B-T1 through P3.B-T10 + T7a. Closing gate M4b (two-machine playtest) pending peer arrangement; promote to `[0.3.0-alpha]` once M4b passes.
+
+### Added
+
+- **Save-bytes transfer** over Steam P2P. Host packs the selected `.binary` save into a `SaveTransferBegin` / N × `SaveChunk` (8 KB) / `SaveTransferEnd` stream. `SaveSyncPacker` handles the chunking + IEEE CRC32; `SaveSyncReassembler` handles ordered/out-of-order reception and CRC verification. Both are pure classes with xUnit coverage.
+- **`HostSession.ClientAccepted`** event + **`BeginSaveTransfer(saveName, sceneName, savesDirAbsolute, out err)`** — called from `LobbyPanel.OnHostStartClicked` after the host picks a save. Per-transport `Send` failures are caught and logged so one dead peer doesn't abort the fan-out.
+- **`ClientSession.SaveReady`** event + save-sync handlers. `OnSaveTransferEnd` writes the reassembled bytes to `<savesDir>/mp-<lobbyId>.binary` and raises `SaveReady`. On any failure, sends `Bye { Reason = "save_transfer_failed" | "save_write_failed" }` before tearing down.
+- **`LobbyPanel.OnSaveReady`** — client's load trigger. Consumes a pending scene name stashed by `OnStartGameReceived`, clears it (prevents spurious repeat loads), and calls `TryLoadLocally("mp-<lobbyId>", scene)`.
+- **Autosave suppression patch** — Harmony prefix on `SaveLoadSystem.AutoSave` returns `false` when `SessionManager.Current.IsLive && Role == Client`. Prevents PCBS's fixed-filename autosave (`auto.binary`, `autohard.binary`) from clobbering the client's real save during an MP session. Gate predicate is `public static` for xUnit coverage (3 gate tests + 1 not-live regression test).
+- **Pre-join save backup** — `SessionLifecycle.OnLobbyJoined` copies every non-MP `*.binary` in `s_saveDir` into `<savesDir>/backup-mp-<lobbyId>/` before any save-sync wiring. Second safety layer behind the autosave patch.
+- **`mp-*.binary` cleanup on `Stop()`** for client sessions, and **stale-file sweep on plugin `Awake`** that deletes `mp-*.binary` files AND `backup-mp-*/` directories older than 7 days. Best-effort — failures log and continue.
+- **`InternalsVisibleTo`** for the test assembly (via new `AssemblyAttributes.cs`) so gate tests can set `SessionManager.IsLive`.
+
+### Fixed
+
+- **B1 — lobby rebroadcast timing.** `OnPeerJoined` was calling `LobbyPanel.RebroadcastState` at the Steam-lobby-join moment, before the handshake completed — the client's `LobbyState` handler wasn't wired yet. Now `HostSession` raises `ClientAccepted` from `OnHello` (post-handshake), and `SessionLifecycle` subscribes to that.
+- **B2 — client load path.** `OnStartGameReceived` used to call `TryLoadLocally(s.SaveName, s.SceneName)` with the host's save filename, which doesn't exist on the client's disk → silent load failure. Now stashes the scene and shows "Receiving host's save data…"; the actual load fires from `SaveReady`.
+- **B3 — client-side LobbyPanel hardcodes.** `RefreshPlayers` is now guarded against client-side invocation (was a latent landmine that would inject a hardcoded "Host (you)" slot-0 entry). `ShowForClient` shows a "Waiting for host's lobby state…" placeholder until the first broadcast lands. Host-side self-name fallback changed from "Host (you)" to "Host" so it composes cleanly with the separate "HOST" badge column.
+- **Host broadcast fan-out resilience.** Per-transport `Send` failures in `BeginSaveTransfer` and `LobbyPanel.OnHostStartClicked`'s `StartGame` fan-out are now caught and logged so one disconnected peer doesn't abort the loop.
+- **Event-subscription symmetry in `Stop()`.** Client branch now unsubscribes `mgr.Client.SaveReady -= LobbyPanel.OnSaveReady`, mirroring the existing `ClientAccepted` cleanup on the host branch.
+
+### Known Limitations (carried to Plan 4+)
+
+- **New-career path not supported.** `StartNewGame` performs no disk write before scene-load, so `BeginSaveTransfer` has nothing to read. Host must pick Continue (existing save). New-career MP deferred pending a save-on-demand hook.
+- **No client-side transfer timeout.** If the host crashes mid-transfer, the "Receiving host's save data…" toast hangs forever. Workaround: F7-hold panic hotkey.
+- **XP / inventory / shop / bench / time sync** not yet implemented (Plan 4).
+- **Presence, chat, HUD connection panel, host-only save/load block** deferred to Plan 5.
+
 ## [0.2.0-rc1] — 2026-04-20
 
 Plan 2 (Game Bridge) implementation complete through M2 smoke. Ships the Harmony patch surface, real Steam P2P transport, and the host/client lobby flow. **Not yet validated on two machines** — M3 (T27) pending remote peer availability. Promote to `0.2.0` after M3 passes.
