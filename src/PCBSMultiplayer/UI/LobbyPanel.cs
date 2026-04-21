@@ -70,7 +70,7 @@ public sealed class LobbyPanel : MonoBehaviour
         var p = EnsureInstance();
         p._isHost = false;
         p._visible = true;
-        p._errorMessage = "";
+        p._errorMessage = "Waiting for host's lobby state…";
         p._pendingSceneName = "";
         p._players.Clear();
         try
@@ -90,6 +90,7 @@ public sealed class LobbyPanel : MonoBehaviour
     public static void OnLobbyStateReceived(LobbyState s)
     {
         if (Instance == null || Instance._isHost) return;
+        Instance._errorMessage = "";
         Instance._players = s.Players;
         Instance._selectedSaveName = s.SelectedSaveName;
         Instance._selectedSceneName = s.SelectedSceneName;
@@ -139,13 +140,18 @@ public sealed class LobbyPanel : MonoBehaviour
 
     private void RefreshPlayers()
     {
+        if (!_isHost)
+        {
+            if (Log != null) Log.LogWarning("RefreshPlayers called on client; ignoring (use OnLobbyStateReceived).");
+            return;
+        }
         if (_players == null) _players = new List<LobbyPlayer>();
         _players.Clear();
         ulong selfId = 0;
-        string selfName = "Host (you)";
+        string selfName = "Host";
         try { selfId = SteamUser.GetSteamID().m_SteamID; }
         catch (Exception ex) { if (Log != null) Log.LogError("GetSteamID: " + ex); }
-        try { selfName = SteamFriends.GetPersonaName() ?? "Host (you)"; }
+        try { selfName = SteamFriends.GetPersonaName() ?? "Host"; }
         catch (Exception ex) { if (Log != null) Log.LogError("GetPersonaName: " + ex); }
         _players.Add(new LobbyPlayer { SteamId = selfId, DisplayName = selfName, IsHost = true });
         if (Log != null) Log.LogInfo("RefreshPlayers self added: " + selfName + " (" + selfId + ")");
