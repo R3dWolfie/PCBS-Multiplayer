@@ -2,7 +2,21 @@
 
 All notable changes to PCBS Multiplayer. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer with `-rc` tags for pre-release builds awaiting the closing manual gate.
 
-## [0.3.0-alpha-preview5] — 2026-04-21
+## [0.3.0-alpha-preview6] — 2026-04-21
+
+Fifth hotfix respin. `preview5` closed the P2P accept race so the Hello handshake works reliably, but two-machine testing surfaced a different failure: the host clicked "Start Game" before the client's Hello arrived, so `BeginSaveTransfer` iterated an empty `HostSession.Transports` dict and silently sent the save bytes to no one. The client was stuck forever on "Waiting for host's lobby state…" because it never received `Welcome` or `LobbyState`. Compounding the problem, the host's player list only showed peers *after* they'd handshaked — so the host saw an empty lobby and had no visual cue that a friend had joined but wasn't ready yet.
+
+### Fixed — release-blocking
+
+- **Host could click Start before the client's Hello arrived, sending the save bytes to nobody.** Root cause: `LobbyPanel.OnHostStartClicked` called `HostSession.BeginSaveTransfer` unconditionally, and `BeginSaveTransfer` broadcasts to `_transports` (populated only in `OnHello`). If the host clicked Start in the gap between `LobbyChatUpdate_t` (peer joined the Steam lobby) and `OnHello` (peer completed the mod handshake), `_transports` was empty and the save transfer was a no-op. Host then loaded its save locally and entered the scene alone. Fix: `OnHostStartClicked` now refreshes the player list, counts non-host players without `IsReady=true`, and refuses to start with a clear `Still waiting for <name> to finish joining` message. Gate clears automatically once `OnHello` fires and the periodic refresh marks the peer ready.
+- **Host's lobby panel didn't show peers who'd joined the Steam lobby but hadn't handshaked yet.** `RefreshPlayers` only enumerated `HostSession.Clients`, which is populated in `OnHello`. So between lobby-join and Hello, the host's player list looked empty — giving the impression the friend hadn't joined at all. Fix: `RefreshPlayers` now enumerates `SteamMatchmaking.GetLobbyMemberByIndex` to catch all lobby members, cross-references `HostSession.Clients` for handshake state, and marks each peer `IsReady=true|false` on the `LobbyPlayer` struct. Connecting peers now render as `GUEST  <name>  ◌ connecting…` in red; ready peers render as `GUEST  <name>  ● ready` in green.
+
+### Added
+
+- **`LobbyPlayer.IsReady`** wire-format field — handshake state propagates to clients so they'll see the same ready/connecting indicators when there are 3+ peers. (Wire change is compatible in-version only — preview6 ↔ preview6.)
+- **Periodic `RefreshPlayers` refresh** from `LobbyPanel.Update` at 2 Hz. Host UI now reflects peer joins, leaves, and handshake completions in real time without requiring any clicks.
+
+## [0.3.0-alpha-preview5] — 2026-04-21 (superseded by preview6)
 
 Fourth hotfix respin. `preview4` fixed the pump deadlock but pairing still failed intermittently because the `P2PSessionRequest_t` callback was registered too late — inside the per-peer `SteamTransport` constructor, which runs after `OnPeerJoined`. The client's Hello can arrive at the host *before* that callback exists, and Steam drops the packet when no handler is registered.
 

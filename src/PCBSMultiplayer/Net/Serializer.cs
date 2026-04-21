@@ -90,6 +90,7 @@ public static class Serializer
                     w.Write(p.SteamId);
                     w.Write(p.DisplayName ?? "");
                     w.Write(p.IsHost);
+                    w.Write(p.IsReady);
                 }
                 break;
             case StartGame x:
@@ -191,7 +192,8 @@ public static class Serializer
             var id = r.ReadUInt64();
             var name = r.ReadString();
             var host = r.ReadBoolean();
-            list.Add(new LobbyPlayer { SteamId = id, DisplayName = name, IsHost = host });
+            var ready = r.ReadBoolean();
+            list.Add(new LobbyPlayer { SteamId = id, DisplayName = name, IsHost = host, IsReady = ready });
         }
         return new LobbyState { Players = list, SelectedSaveName = selected, SelectedSceneName = scene };
     }

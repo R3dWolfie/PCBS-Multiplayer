@@ -18,6 +18,8 @@ public sealed class LobbyPanel : MonoBehaviour
     private bool _visible;
 
     private List<LobbyPlayer> _players = new List<LobbyPlayer>();
+    private float _lastPlayerRefreshTime;
+    private const float PlayerRefreshIntervalSec = 0.5f;
     private string _selectedSaveName = "";
     private string _selectedSceneName = "";
     private string _errorMessage = "";
@@ -159,19 +161,55 @@ public sealed class LobbyPanel : MonoBehaviour
         catch (Exception ex) { if (Log != null) Log.LogError("GetSteamID: " + ex); }
         try { selfName = SteamFriends.GetPersonaName() ?? "Host"; }
         catch (Exception ex) { if (Log != null) Log.LogError("GetPersonaName: " + ex); }
-        _players.Add(new LobbyPlayer { SteamId = selfId, DisplayName = selfName, IsHost = true });
-        if (Log != null) Log.LogInfo("RefreshPlayers self added: " + selfName + " (" + selfId + ")");
+        _players.Add(new LobbyPlayer { SteamId = selfId, DisplayName = selfName, IsHost = true, IsReady = true });
 
         var mgr = SessionManager.Current;
         if (mgr == null || mgr.Host == null) return;
+
+        // Build a lookup of handshaked peers (those who've sent Hello) keyed by steamid.
+        var readyBySteamId = new Dictionary<ulong, ClientInfo>();
         foreach (var kv in mgr.Host.Clients)
         {
-            _players.Add(new LobbyPlayer
+            if (kv.Value.SteamId != 0) readyBySteamId[kv.Value.SteamId] = kv.Value;
+        }
+
+        // Enumerate Steam lobby members directly — this includes peers who've joined the
+        // lobby but haven't completed Hello yet. Without this, RefreshPlayers would miss
+        // them entirely and the host would see an empty player list.
+        var lobbyId = SessionLifecycle.Lobby.LobbyId;
+        int count = 0;
+        try { count = SteamMatchmaking.GetNumLobbyMembers(lobbyId); }
+        catch (Exception ex) { if (Log != null) Log.LogError("GetNumLobbyMembers: " + ex); }
+        for (int i = 0; i < count; i++)
+        {
+            CSteamID member;
+            try { member = SteamMatchmaking.GetLobbyMemberByIndex(lobbyId, i); }
+            catch (Exception ex) { if (Log != null) Log.LogError("GetLobbyMemberByIndex " + i + ": " + ex); continue; }
+            if (member.m_SteamID == selfId) continue;
+
+            string name = "(unknown)";
+            try { name = SteamFriends.GetFriendPersonaName(member); }
+            catch { }
+            if (readyBySteamId.TryGetValue(member.m_SteamID, out var ci))
             {
-                SteamId = kv.Value.SteamId,
-                DisplayName = string.IsNullOrEmpty(kv.Value.DisplayName) ? ("Guest " + kv.Value.Slot) : kv.Value.DisplayName,
-                IsHost = false
-            });
+                _players.Add(new LobbyPlayer
+                {
+                    SteamId = member.m_SteamID,
+                    DisplayName = string.IsNullOrEmpty(ci.DisplayName) ? name : ci.DisplayName,
+                    IsHost = false,
+                    IsReady = true
+                });
+            }
+            else
+            {
+                _players.Add(new LobbyPlayer
+                {
+                    SteamId = member.m_SteamID,
+                    DisplayName = name,
+                    IsHost = false,
+                    IsReady = false
+                });
+            }
         }
     }
 
@@ -264,6 +302,26 @@ public sealed class LobbyPanel : MonoBehaviour
 
         var mgr = SessionManager.Current;
         if (mgr == null || mgr.Role != SessionRole.Host) { _errorMessage = "Not hosting."; return; }
+
+        // Gate on handshake completion. Without this gate, clicking Start before a peer's
+        // Hello arrives means BeginSaveTransfer iterates an empty HostSession.Transports
+        // dict and silently sends no save bytes — the client is stuck at "Waiting for
+        // host's lobby state…" forever. (Preview5 log showed this exact failure.)
+        int notReady = 0;
+        string firstNotReady = null;
+        RefreshPlayers();
+        foreach (var p in _players)
+        {
+            if (p.IsHost || p.IsReady) continue;
+            notReady++;
+            if (firstNotReady == null) firstNotReady = string.IsNullOrEmpty(p.DisplayName) ? ("peer " + p.SteamId) : p.DisplayName;
+        }
+        if (notReady > 0)
+        {
+            _errorMessage = "Still waiting for " + firstNotReady + (notReady > 1 ? " and " + (notReady - 1) + " other(s)" : "") + " to finish joining. Try again in a moment.";
+            if (Log != null) Log.LogInfo("OnHostStartClicked refused: " + notReady + " peer(s) not ready");
+            return;
+        }
 
         // broadcast save bytes to all clients first — they reassemble while host loads
         string savesDir = ResolveSavesDir();
@@ -436,6 +494,20 @@ public sealed class LobbyPanel : MonoBehaviour
         GUI.color = prev;
     }
 
+    private void Update()
+    {
+        // Live-refresh the host's player list so peers who join the Steam lobby appear
+        // immediately (as "connecting…") and flip to "ready" when Hello handshake
+        // completes, without requiring the user to click anything. Throttled to avoid
+        // thrashing SteamMatchmaking every frame.
+        if (!_visible || !_isHost) return;
+        float now = Time.unscaledTime;
+        if (now - _lastPlayerRefreshTime < PlayerRefreshIntervalSec) return;
+        _lastPlayerRefreshTime = now;
+        try { RefreshPlayers(); }
+        catch (Exception ex) { if (Log != null) Log.LogError("RefreshPlayers (periodic): " + ex); }
+    }
+
     private void OnGUI()
     {
         if (!_visible) return;
@@ -494,7 +566,19 @@ public sealed class LobbyPanel : MonoBehaviour
             badgeStyle.normal.textColor = p.IsHost ? Accent : TextDim;
             badgeStyle.fontSize = 14;
             GUI.Label(new Rect(rowRect.x + 14f, rowRect.y, 80f, rowRect.height), badge, badgeStyle);
-            GUI.Label(new Rect(rowRect.x + 96f, rowRect.y, rowRect.width - 96f, rowRect.height), p.DisplayName ?? "(unknown)", _labelStyle);
+
+            float nameW = rowRect.width - 96f - 140f;
+            GUI.Label(new Rect(rowRect.x + 96f, rowRect.y, nameW, rowRect.height), p.DisplayName ?? "(unknown)", _labelStyle);
+
+            if (!p.IsHost)
+            {
+                var statusStyle = new GUIStyle(_labelStyle);
+                statusStyle.alignment = TextAnchor.MiddleRight;
+                statusStyle.fontSize = 14;
+                statusStyle.normal.textColor = p.IsReady ? Select : TextError;
+                string statusText = p.IsReady ? "● ready" : "◌ connecting…";
+                GUI.Label(new Rect(rowRect.x + rowRect.width - 150f, rowRect.y, 136f, rowRect.height), statusText, statusStyle);
+            }
             py += 48f;
         }
         if (_players.Count < 4)
