@@ -18,7 +18,7 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
     // PluginVersion must be System.Version-parseable (digits+dots only) — BepInEx 5.x rejects
     // SemVer pre-release suffixes like "-rc1" with "Skipping type ... version is invalid".
     public const string PluginVersion = "0.3.0.0";
-    public const string DisplayVersion = "0.3.0-alpha-preview2";
+    public const string DisplayVersion = "0.3.0-alpha-preview4";
 
     public static PCBSMultiplayerPlugin Instance { get; private set; }
 
@@ -87,11 +87,10 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
         if (clientSt != null) clientSt.Pump();
         if (mgr.Role == SessionRole.Host)
         {
-            foreach (var t in mgr.Host.Transports)
-            {
-                var hst = t as SteamTransport;
-                if (hst != null) hst.Pump();
-            }
+            // Pump via SessionManager's full _clientTransports list, NOT HostSession.Transports —
+            // the latter is only populated inside OnHello, so using it would deadlock pre-handshake
+            // (Hello packet arrives but is never pumped out of Steam's buffer, so OnHello never fires).
+            mgr.PumpHostTransports();
         }
 
         mgr.Tick();

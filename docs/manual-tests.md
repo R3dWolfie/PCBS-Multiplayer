@@ -172,6 +172,38 @@ First deploy used `GUI.Label` defaults at (10, 10) — nearly invisible at 4K (~
 
 ---
 
+## P3.B-T11 — M4 single-machine regression (Plan 3 join-loop changes)
+
+**Date:** 2026-04-21 (pending run)
+**DLL sha:** `27f420f`
+**Platform:** Linux / Proton / PCBS 621060
+**Launch options:** `WINEDLLOVERRIDES="winhttp=n,b" %command%`
+**Result:** PENDING
+
+### Checklist
+- [ ] Host Multiplayer → lobby panel opens, own entry shows with Steam persona (no "Host (you)" literal)
+- [ ] Pick existing save → click Start Game → scene loads into the selected save
+- [ ] No `Save transfer failed` error strip
+- [ ] LogOutput contains `OnHostStartClicked` / `BeginSaveTransfer` entries and **no** `[Error:` lines
+- [ ] No `mp-*.binary` files created in `Saves/<steamID>/` (no clients → BeginSaveTransfer is a no-op broadcast)
+- [ ] Solo money spend on a part → cash deducts normally (Plan 2 behavior intact)
+- [ ] Solo job accept from email → job appears on board
+- [ ] Solo job complete → cash increments
+- [ ] Panic hotkey: hold F7 for 3s at main menu → toast + `PanicHotkeyHandler: mod disabled` in log. Flip config back after.
+- [ ] Clean shutdown (quit to main menu → quit game) — no `[Error:` lines, `SteamAPI.Shutdown` runs
+
+### Evidence
+
+```
+<paste LogOutput.log excerpt>
+```
+
+### Notes
+Pre-T11 commits covered: T5 (B1), T6 (save-transfer host), T7 (save-sync client), T7a (autosave suppression), T8 (B2), T9 (B3), T10 (backup + cleanup + sweep).
+Regressions at this tier are almost always in T5/T6/T8/T10 (the Harmony/UI-touching ones).
+
+---
+
 ## P3.B-T1 — Recon gate (Plan 3 save system)
 
 **Date:** 2026-04-21

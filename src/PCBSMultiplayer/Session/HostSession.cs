@@ -173,7 +173,11 @@ public sealed class HostSession
     public bool BeginSaveTransfer(string saveName, string sceneName, string savesDirAbsolute, out string err)
     {
         err = null;
-        string fileName = saveName + ".binary";
+        // PCBS's SaveFileInfo.Name already includes the .binary extension — don't double-append.
+        string bareName = saveName.EndsWith(".binary", StringComparison.OrdinalIgnoreCase)
+            ? saveName.Substring(0, saveName.Length - ".binary".Length)
+            : saveName;
+        string fileName = bareName + ".binary";
         string fullPath = Path.Combine(savesDirAbsolute, fileName);
 
         byte[] bytes;

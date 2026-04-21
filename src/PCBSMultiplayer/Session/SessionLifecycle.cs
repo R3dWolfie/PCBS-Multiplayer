@@ -26,7 +26,13 @@ public static class SessionLifecycle
     {
         PendingInvite = lobbyId;
         HasPendingInvite = true;
-        Log.LogInfo("Invite received: lobby " + lobbyId);
+        if (SessionManager.Current != null)
+        {
+            Log.LogWarning("Invite received while already in a session — leave first, then use 'Join Multiplayer'.");
+            return;
+        }
+        Log.LogInfo("Invite received: lobby " + lobbyId + " — auto-joining.");
+        JoinPendingInvite();
     }
 
     public static void StartHost()
@@ -57,6 +63,10 @@ public static class SessionLifecycle
     {
         var mgr = SessionManager.Current;
         if (mgr == null || mgr.Role != SessionRole.Host) return;
+        // Accept the P2P session before the client's first packet arrives — Steam drops
+        // pre-accept packets, so without this the client's Hello is lost and the host never
+        // broadcasts LobbyState back.
+        SteamNetworking.AcceptP2PSessionWithUser(peerId);
         var transport = new SteamTransport(peerId);
         mgr.Host.AttachClient(transport);
         Log.LogInfo("Peer joined lobby: " + peerId);

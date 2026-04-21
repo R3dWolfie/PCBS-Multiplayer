@@ -85,6 +85,15 @@ public sealed class SessionManager
         _clientTransports.Add(new ClientTransportEntry(t, r));
     }
 
+    public void PumpHostTransports()
+    {
+        foreach (var e in _clientTransports)
+        {
+            var st = e.Transport as SteamTransport;
+            if (st != null) st.Pump();
+        }
+    }
+
     public HostSession Host => _host ?? throw new InvalidOperationException("not a host");
     public ClientSession Client => _client ?? throw new InvalidOperationException("not a client");
 }

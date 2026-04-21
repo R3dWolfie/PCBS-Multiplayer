@@ -2,7 +2,28 @@
 
 All notable changes to PCBS Multiplayer. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer with `-rc` tags for pre-release builds awaiting the closing manual gate.
 
-## [0.3.0-alpha-preview2] — 2026-04-21
+## [0.3.0-alpha-preview4] — 2026-04-21
+
+Third hotfix respin. `preview3` added the host-side P2P-accept call and the auto-join UX, but pairing still deadlocked because the Update loop's pump list was wrong — the client's Hello packet sat unread in Steam's buffer forever. Also fixes a save-path bug (double `.binary` extension) that would have surfaced the instant pairing worked.
+
+### Fixed — release-blocking
+
+- **Host never pumped pre-handshake client transports — Hello packet lost.** `PCBSMultiplayerPlugin.Update` iterated `mgr.Host.Transports` (backed by `HostSession._transports`), but that dictionary is only populated *inside* `OnHello` after a successful handshake. So the freshly-attached transport sat in `SessionManager._clientTransports` with no pump, `SteamNetworking.ReadP2PPacket` was never called for it, the client's Hello never moved into the inbox, `OnHello` never fired, `ClientAccepted` never raised, `LobbyState` never broadcast — the friend's panel hung forever on "Waiting for host's lobby state…". Classic chicken-and-egg: pump depends on OnHello, OnHello depends on pump. Latent since Plan 2 — no two-machine testing ever ran, and single-machine smokes use a null transport. Fix: added `SessionManager.PumpHostTransports()` which iterates the raw `_clientTransports` list (populated immediately on `AttachClient`), and the plugin's Update now calls that instead of `mgr.Host.Transports`. `HostSession.Transports` still has the "post-handshake, slot-assigned" semantics that `LobbyPanel` broadcast paths rely on.
+- **`BeginSaveTransfer` tried to read `<save>.binary.binary`.** PCBS's `SaveFileInfo.Name` already includes the `.binary` extension (e.g. `auto.binary`), and the host was unconditionally appending another one. First host to pick an existing save would have hit `save read failed at … auto.binary.binary: Could not find file`. Fix: strip trailing `.binary` (case-insensitive) before re-appending.
+
+## [0.3.0-alpha-preview3] — 2026-04-21 (superseded by preview4)
+
+Second hotfix respin. `preview2` fixed the dispatcher crash and phantom-session bug, but two issues remained once a real host + client tried to pair: the client got as far as "Client session started" but the host never saw them, and the Steam "Join Game" button required a redundant second click on "Join Multiplayer" in-game. No feature changes.
+
+### Fixed — release-blocking
+
+- **Host never accepted the client's P2P session**, so the client's `Hello` packet was silently dropped by Steam and the host never broadcast `LobbyState` back. Symptom: client's lobby panel stuck on "Waiting for host's lobby state…" forever, host's player list never showed the friend, host log had `"Peer joined lobby: <id>"` but no `"Client accepted (slot …)"`. Root cause: `SessionLifecycle.OnPeerJoined` constructed `SteamTransport` but never called `SteamNetworking.AcceptP2PSessionWithUser(peerId)`. The client side did accept on join, but Steam requires BOTH sides to accept before packets flow — packets sent before the host accepts are discarded. The `P2PSessionRequest_t` callback inside `SteamTransport` was supposed to catch this, but it was registered too late (after the client's Hello had already been dropped). Fix: call `AcceptP2PSessionWithUser` as the first line of `OnPeerJoined`, before the `SteamTransport` is constructed.
+
+### Changed — UX
+
+- **Accepting a Steam invite now auto-opens the lobby**. The previous flow required three clicks (Steam invite → "Join Game" in overlay → "Join Multiplayer" button on main menu), because `OnInvite` only stashed the pending invite and waited for the main-menu button. Now `OnInvite` calls `JoinPendingInvite()` directly once the `GameLobbyJoinRequested_t` callback fires, collapsing to a single "Join Game" click. The "Join Multiplayer" main-menu button still works as a fallback if the Steam overlay click is dismissed. Guard added: if a session is already active when an invite arrives, the auto-join is skipped and a warning logs "leave first, then use 'Join Multiplayer'".
+
+## [0.3.0-alpha-preview2] — 2026-04-21 (superseded by preview3)
 
 Hotfix respin of `0.3.0-alpha-preview`. The preview build shipped with two bugs that only surfaced once a host + client actually tried to exchange frames on two real Steam peers; surfaced during first live test with a friend. No feature changes.
 
