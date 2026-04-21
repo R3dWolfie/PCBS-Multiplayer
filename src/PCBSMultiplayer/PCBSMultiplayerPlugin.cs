@@ -63,6 +63,7 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
             UI.LobbyPanel.Log = Logger;
 
             Logger.LogInfo($"PCBS Multiplayer {PluginVersion} loaded. Steam user: {SteamFriends.GetPersonaName()}");
+            SweepStaleMpSaves();
         }
         catch (Exception ex)
         {
@@ -97,5 +98,51 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
     {
         if (_steamInitialized) SteamAPI.Shutdown();
         _steamInitialized = false;
+    }
+
+    private void SweepStaleMpSaves()
+    {
+        try
+        {
+            string savesDir;
+            try { savesDir = SaveLoadSystem.s_saveDir; } catch { return; }
+            if (string.IsNullOrEmpty(savesDir) || !System.IO.Directory.Exists(savesDir)) return;
+
+            DateTime cutoff = DateTime.UtcNow.AddDays(-7);
+
+            int removedFiles = 0;
+            var files = System.IO.Directory.GetFiles(savesDir, "mp-*.binary");
+            foreach (var f in files)
+            {
+                try
+                {
+                    if (System.IO.File.GetLastWriteTimeUtc(f) < cutoff)
+                    {
+                        System.IO.File.Delete(f);
+                        removedFiles++;
+                    }
+                }
+                catch (Exception ex) { Logger.LogWarning("Stale mp-save skipped: " + f + " — " + ex.Message); }
+            }
+
+            int removedDirs = 0;
+            var dirs = System.IO.Directory.GetDirectories(savesDir, "backup-mp-*");
+            foreach (var d in dirs)
+            {
+                try
+                {
+                    if (System.IO.Directory.GetLastWriteTimeUtc(d) < cutoff)
+                    {
+                        System.IO.Directory.Delete(d, recursive: true);
+                        removedDirs++;
+                    }
+                }
+                catch (Exception ex) { Logger.LogWarning("Stale backup dir skipped: " + d + " — " + ex.Message); }
+            }
+
+            if (removedFiles > 0 || removedDirs > 0)
+                Logger.LogInfo("Swept " + removedFiles + " stale mp-*.binary file(s) and " + removedDirs + " backup-mp-*/ dir(s) from " + savesDir);
+        }
+        catch (Exception ex) { Logger.LogWarning("SweepStaleMpSaves failed: " + ex.Message); }
     }
 }

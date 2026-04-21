@@ -85,6 +85,7 @@ public static class SessionLifecycle
             return;
         }
         SteamNetworking.AcceptP2PSessionWithUser(hostId);
+        BackupClientSavesBeforeJoin(_lobby.LobbyId.m_SteamID);
         var transport = new SteamTransport(hostId);
         var mgr = new SessionManager(SessionRole.Client, transport);
         SessionManager.Current = mgr;
@@ -104,6 +105,23 @@ public static class SessionLifecycle
     public static void Stop()
     {
         var mgr = SessionManager.Current;
+
+        if (mgr != null && mgr.Role == SessionRole.Client)
+        {
+            try
+            {
+                string savesDir = SaveLoadSystem.s_saveDir;
+                ulong lobbyId = _lobby.LobbyId.m_SteamID;
+                string path = System.IO.Path.Combine(savesDir, "mp-" + lobbyId + ".binary");
+                if (System.IO.File.Exists(path))
+                {
+                    System.IO.File.Delete(path);
+                    Log.LogInfo("Cleaned up client mp-save: " + path);
+                }
+            }
+            catch (Exception ex) { Log.LogWarning("mp-save cleanup failed: " + ex.Message); }
+        }
+
         if (mgr != null && mgr.Transport != null) mgr.Transport.Disconnect();
         if (mgr != null && mgr.Role == SessionRole.Host && mgr.Host != null)
         {
@@ -117,6 +135,34 @@ public static class SessionLifecycle
         if (_lobby.LobbyId != CSteamID.Nil) SteamMatchmaking.LeaveLobby(_lobby.LobbyId);
         LobbyPanel.Hide();
         Log.LogInfo("Session stopped.");
+    }
+
+    private static void BackupClientSavesBeforeJoin(ulong lobbyId)
+    {
+        try
+        {
+            string savesDir = SaveLoadSystem.s_saveDir;
+            if (string.IsNullOrEmpty(savesDir) || !System.IO.Directory.Exists(savesDir)) return;
+
+            string backupDir = System.IO.Path.Combine(savesDir, "backup-mp-" + lobbyId);
+            System.IO.Directory.CreateDirectory(backupDir);
+
+            var files = System.IO.Directory.GetFiles(savesDir, "*.binary");
+            int copied = 0;
+            foreach (var src in files)
+            {
+                string name = System.IO.Path.GetFileName(src);
+                if (name.StartsWith("mp-")) continue;
+                string dst = System.IO.Path.Combine(backupDir, name);
+                System.IO.File.Copy(src, dst, overwrite: true);
+                copied++;
+            }
+            Log.LogInfo("Pre-join backup: copied " + copied + " save file(s) to " + backupDir);
+        }
+        catch (Exception ex)
+        {
+            Log.LogWarning("Pre-join backup failed (continuing anyway): " + ex.Message);
+        }
     }
 }
 
