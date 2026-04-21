@@ -10,7 +10,7 @@ namespace PCBSMultiplayer.Session;
 
 public sealed class HostSession
 {
-    public const string ModVersion = "0.1.0";
+    public const string ModVersion = "0.3.0-alpha";
     public const int MaxClients = 3;
 
     private static readonly ManualLogSource Log =

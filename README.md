@@ -10,7 +10,7 @@
 
 Co-op multiplayer mod for **PC Building Simulator** (2018, Steam AppID 621060).
 
-**Status:** `0.2.0-rc1` — alpha. Shared money + job board sync on two machines; full save-sync join loop is in active development for `0.3.0-alpha`. See [CHANGELOG.md](CHANGELOG.md).
+**Status:** `0.3.0-alpha` — alpha. Shared money + job-claim sync on two machines, with host-side save transfer on lobby start. Inventory / shop / bench / time (Plan 4) and remote-player presence (Plan 5) are still TODO. See [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -76,7 +76,7 @@ Your game becomes authoritative: money, XP, job board, and (in `0.3.0+`) invento
 2. Click **Join Multiplayer** on the main menu (if the game isn't already joining automatically).
 3. Wait for the host to start — the session loads you into the host's scene.
 
-**In `0.2.0-rc1`:** you and the host both need to pick the *same* save file from the main menu — there's no save transfer yet. Upgrade to `0.3.0-alpha` when it ships for automatic save-bytes transfer.
+**In `0.3.0-alpha`:** the host picks the save from the in-game lobby panel and hits **Start** — the client doesn't need to pre-pick anything. The save bytes transfer over Steam P2P (`mp-<lobbyId>.binary`) and both players load into the same scene automatically.
 
 ## Uninstalling
 

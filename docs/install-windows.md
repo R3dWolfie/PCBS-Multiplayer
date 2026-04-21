@@ -71,7 +71,7 @@ If they don't appear:
 1. Open `PC Building Simulator\BepInEx\LogOutput.log` with Notepad.
 2. Search for `PCBS Multiplayer` — you should see a line like:
    ```
-   [Info   :PCBSMultiplayer] PCBS Multiplayer 0.2.0-rc1 loaded. Steam user: <your_name>
+   [Info   :PCBSMultiplayer] PCBS Multiplayer 0.3.0-alpha loaded. Steam user: <your_name>
    ```
 3. If that line is missing, confirm the DLL was unblocked (step 3.2) and that BepInEx itself loaded (search for `BepInEx` near the top of the log).
 
@@ -91,7 +91,7 @@ Your game becomes authoritative for money and the job board. Your friend's clien
 2. If the game doesn't join automatically, click **Join Multiplayer** on the main menu — it consumes the pending invite.
 3. Wait for the host to pick a save.
 
-**In `0.2.0-rc1`:** save sync isn't implemented yet — you and the host both need to manually pick the *same* save file from the main menu. Save-bytes transfer arrives in `0.3.0`.
+**In `0.3.0-alpha`:** the host picks the save from the in-game lobby panel and hits **Start** — the client doesn't need to pre-pick anything. The save bytes transfer over Steam P2P and both players load into the same scene automatically.
 
 ## Troubleshooting
 

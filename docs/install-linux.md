@@ -35,7 +35,7 @@ or on Steam Deck:
 
 ## 2. Extract the bundle
 
-1. Download `PCBSMultiplayer-v0.2.0-rc1-linux.zip` from the [releases page](https://github.com/R3dWolfie/PCBS-Multiplayer/releases).
+1. Download `PCBSMultiplayer-0.3.0-alpha-linux.zip` from the [releases page](https://github.com/R3dWolfie/PCBS-Multiplayer/releases).
 2. Extract it **directly into your PCBS folder** from step 1. After extracting, the folder should contain:
 
 ```
@@ -85,7 +85,7 @@ Open your PCBS folder in a file manager and navigate to `BepInEx/LogOutput.log`.
 Look for:
 
 ```
-[Info   :PCBSMultiplayer] PCBS Multiplayer 0.2.0-rc1 loaded. Steam user: <your_name>
+[Info   :PCBSMultiplayer] PCBS Multiplayer 0.3.0-alpha loaded. Steam user: <your_name>
 ```
 
 If the log file exists but no PCBSMultiplayer line appears, BepInEx loaded but the plugin DLL didn't — re-extract the zip. If the log file is missing or empty, the `WINEDLLOVERRIDES` launch option isn't being applied — see Troubleshooting.
@@ -106,7 +106,7 @@ Your game is authoritative for money and the job board. Your friend's client mir
 2. If the game doesn't auto-join, click **Join Multiplayer** on the main menu — it consumes the pending invite.
 3. Wait for the host to pick a save.
 
-**In `0.2.0-rc1`:** save sync isn't implemented — you and the host both pick the *same* save file from the main menu. Save-bytes transfer arrives in `0.3.0`.
+**In `0.3.0-alpha`:** the host picks the save from the in-game lobby panel and hits **Start** — the client doesn't need to pre-pick anything. The save bytes transfer over Steam P2P (`mp-<lobbyId>.binary`) and both players load into the same scene automatically.
 
 ## Troubleshooting
 
@@ -123,7 +123,7 @@ BepInEx's preloader never ran. Same cause as above — launch option not applied
 Your Proton version may be too old or incompatible. In Steam: right-click the game → Properties → Compatibility → **Force the use of a specific Steam Play compatibility tool** → pick **Proton 7.0-6** or newer, or **Proton Experimental**.
 
 **Mod loaded but no "Host/Join" buttons**
-Check the log for plugin load errors. If you see "type-load" errors, confirm you're using `v0.2.0-rc1` or newer — earlier pre-tag builds had Mono 2018 compat issues.
+Check the log for plugin load errors. If you see "type-load" errors, confirm you're using `v0.3.0-alpha` or newer — earlier pre-tag builds had Mono 2018 compat issues.
 
 **"Join Multiplayer" click does nothing**
 Works only when you have a pending Steam invite. Ask the host to click Host Multiplayer and invite you via the overlay first.

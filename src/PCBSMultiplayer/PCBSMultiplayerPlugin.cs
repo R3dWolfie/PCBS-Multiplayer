@@ -18,7 +18,7 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
     // PluginVersion must be System.Version-parseable (digits+dots only) — BepInEx 5.x rejects
     // SemVer pre-release suffixes like "-rc1" with "Skipping type ... version is invalid".
     public const string PluginVersion = "0.3.0.0";
-    public const string DisplayVersion = "0.3.0-alpha-preview15";
+    public const string DisplayVersion = "0.3.0-alpha";
 
     public static PCBSMultiplayerPlugin Instance { get; private set; }
 

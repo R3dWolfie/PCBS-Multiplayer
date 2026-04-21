@@ -10,7 +10,7 @@ namespace PCBSMultiplayer.Session;
 
 public sealed class ClientSession
 {
-    public const string ModVersion = "0.1.0";
+    public const string ModVersion = "0.3.0-alpha";
 
     private static readonly ManualLogSource Log = BepInEx.Logging.Logger.CreateLogSource("PCBSMultiplayer.ClientSession");
 

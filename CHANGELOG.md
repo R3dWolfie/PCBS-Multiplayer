@@ -2,6 +2,30 @@
 
 All notable changes to PCBS Multiplayer. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer with `-rc` tags for pre-release builds awaiting the closing manual gate.
 
+## [0.3.0-alpha] — 2026-04-22
+
+Plan 3 closing milestone. `preview15` passed the two-machine M4b playtest gate (host + friend on separate machines, money debits and job claims propagate bidirectionally, `BroadcastMoneyChanged` logs `recipients=1`, client's `CareerStatus.GetCash()` mirrors host after every spend). No code changes since `preview15` — this tag just promotes the last preview to the stable 0.3 alpha milestone and bumps `HostSession.ModVersion` / `ClientSession.ModVersion` from `"0.1.0"` (Plan 1 placeholder) to `"0.3.0-alpha"` so the lobby handshake's exact-match version check rejects older v0.2.x clients on sight.
+
+### Changed
+
+- **`HostSession.ModVersion` and `ClientSession.ModVersion` bumped from `"0.1.0"` → `"0.3.0-alpha"`.** `LobbyVersionCheck.IsCompatible` is a strict string equality check — old v0.2.x clients will now be rejected at lobby join with `mod version mismatch: local=0.2.x, host=0.3.0-alpha` instead of silently mis-speaking an incompatible protocol. Required any time we add new wire message types that the old peer can't decode (Plan 3 added `SaveTransferBegin/Chunk/End`, `JobBoardDelta`, `Heartbeat` etc.).
+- **`DisplayVersion` bumped to `"0.3.0-alpha"`** (no `-preview` suffix). Still distinct from `PluginVersion = "0.3.0.0"`, which must stay digits-and-dots-only so BepInEx 5.x's `System.Version` parse doesn't reject the plugin.
+
+### Scope — what 0.3 alpha covers
+
+- Host-authoritative **money** sync (both directions; client purchases debit host's `CareerStatus`).
+- Host-authoritative **job claim** sync (client claims flip `Job.m_status` on both ends; job-board UI moves the job to "in progress").
+- **Save transfer** on lobby start (host sends full save bytes via chunked Steam P2P; client writes to `mp-<lobbyId>.binary` and loads).
+- **Lobby panel** with save picker (host), waiting/receiving UI (client), friend-ready indicator.
+- **Version gate** at lobby join (strict exact-match).
+
+### Scope — what 0.3 alpha does NOT cover (Plan 4 / Plan 5)
+
+- **Inventory / shop / bench / time sync** — selling broken parts, ordering from the shop calendar, bench work, and in-game time advancement are all single-player-local. Plan 4.
+- **Remote player presence** — no capsules, nameplates, or position sync; you won't see where your friend is in the office. Plan 5 (target 0.4.0-alpha).
+- **Quit/Release and Complete/Collect** bidirectional job state — claim-and-hold works; unclaiming or completing a job is still host-side-only.
+- **New-career path** — host must pick "Continue" (existing save); New Career through the lobby is not wired.
+
 ## [0.3.0-alpha-preview15] — 2026-04-22
 
 Client→host heartbeat fix. Two-machine playtest with a second friend surfaced that host→client broadcasts (money, jobs) silently stopped reaching the client a few seconds into gameplay — host's wallet would debit correctly on client purchases, but the client's UI stayed frozen at the save-load value. The log showed every `BroadcastMoneyChanged` leaving with `recipients=0`.
