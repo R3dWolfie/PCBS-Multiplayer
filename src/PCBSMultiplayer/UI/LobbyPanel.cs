@@ -21,6 +21,7 @@ public sealed class LobbyPanel : MonoBehaviour
     private string _selectedSaveName = "";
     private string _selectedSceneName = "";
     private string _errorMessage = "";
+    private string _pendingSceneName = "";
 
     private struct SaveEntry { public string Name; public string Display; public string Scene; public string GameMode; public int Cash; public int Kudos; }
     private List<SaveEntry> _saves = new List<SaveEntry>();
@@ -95,8 +96,24 @@ public sealed class LobbyPanel : MonoBehaviour
     public static void OnStartGameReceived(StartGame s)
     {
         if (Instance == null || Instance._isHost) return;
-        if (Log != null) Log.LogInfo("Client received StartGame: " + s.SaveName + " / " + s.SceneName);
-        Instance.TryLoadLocally(s.SaveName, s.SceneName);
+        Instance._pendingSceneName = s.SceneName;
+        Instance._errorMessage = "Receiving host's save data…";
+        if (Log != null) Log.LogInfo("Client received StartGame; waiting for SaveTransferEnd. scene=\"" + s.SceneName + "\"");
+        // actual load fires from ClientSession.SaveReady (wired in SessionLifecycle.OnLobbyJoined)
+    }
+
+    public static void OnSaveReady(string saveName)
+    {
+        if (Instance == null) return;
+        string scene = Instance._pendingSceneName;
+        if (string.IsNullOrEmpty(scene))
+        {
+            if (Log != null) Log.LogWarning("SaveReady but no pending scene; ignoring.");
+            return;
+        }
+        if (Log != null) Log.LogInfo("SaveReady(\"" + saveName + "\"); loading into \"" + scene + "\".");
+        Instance._errorMessage = "";
+        Instance.TryLoadLocally(saveName, scene);
     }
 
     public static void RebroadcastState()
