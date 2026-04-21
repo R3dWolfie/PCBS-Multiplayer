@@ -151,6 +151,7 @@ public sealed class HostSession
     {
         _mgr.World.Money = newTotal;
         var frame = Serializer.Pack(new MoneyChanged { NewTotal = newTotal });
+        Log.LogInfo("BroadcastMoneyChanged: total=" + newTotal + " bytes=" + frame.Length + " recipients=" + _transports.Count);
         foreach (var t in _transports.Values) t.Send(frame);
     }
 
@@ -168,6 +169,7 @@ public sealed class HostSession
 
         var delta = new JobBoardDelta { Available = available, Claimed = claimed, Completed = completed };
         var frame = Serializer.Pack(delta);
+        Log.LogInfo("BroadcastJobBoardDelta: available=" + available.Count + " claimed=" + claimed.Count + " completed=" + completed.Count + " bytes=" + frame.Length + " recipients=" + _transports.Count);
         foreach (var t in _transports.Values) t.Send(frame);
     }
 

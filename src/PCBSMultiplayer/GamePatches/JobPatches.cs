@@ -18,14 +18,18 @@ public static class AddJobPatch
     {
         try
         {
-            if (SessionManager.ApplyingRemoteDelta) return;
+            if (SessionManager.ApplyingRemoteDelta) { JobPatchLog.Log.LogInfo("AddJob postfix skipped: ApplyingRemoteDelta"); return; }
             var mgr = SessionManager.Current;
+            string jobId = job == null ? "<null>" : job.GetId().ToString();
+            JobPatchLog.Log.LogInfo("AddJob postfix: jobId=" + jobId
+                + " mgr=" + (mgr == null ? "null" : ("Role=" + mgr.Role + " IsLive=" + mgr.IsLive)));
             if (mgr == null || !mgr.IsLive || mgr.Role != SessionRole.Host) return;
             mgr.World.JobBoard.AddAvailable(new PCBSMultiplayer.State.Job
             {
-                Id = job.GetId().ToString(),
+                Id = jobId,
                 ClaimedBySlot = -1
             });
+            JobPatchLog.Log.LogInfo("AddJob postfix: broadcasting JobBoardDelta");
             mgr.Host.BroadcastJobBoardDelta();
         }
         catch (Exception ex) { JobPatchLog.Log.LogError($"AddJob postfix: {ex}"); }
@@ -59,10 +63,14 @@ public static class OnAcceptPatch
     {
         try
         {
-            if (SessionManager.ApplyingRemoteDelta) return;
+            if (SessionManager.ApplyingRemoteDelta) { JobPatchLog.Log.LogInfo("OnAccept postfix skipped: ApplyingRemoteDelta"); return; }
             var mgr = SessionManager.Current;
+            string jobId = __instance == null ? "<null>" : __instance.GetId().ToString();
+            JobPatchLog.Log.LogInfo("OnAccept postfix: jobId=" + jobId
+                + " mgr=" + (mgr == null ? "null" : ("Role=" + mgr.Role + " IsLive=" + mgr.IsLive)));
             if (mgr == null || !mgr.IsLive || mgr.Role != SessionRole.Host) return;
-            mgr.World.JobBoard.TryClaim(__instance.GetId().ToString(), mgr.LocalSlot);
+            mgr.World.JobBoard.TryClaim(jobId, mgr.LocalSlot);
+            JobPatchLog.Log.LogInfo("OnAccept postfix: broadcasting JobBoardDelta");
             mgr.Host.BroadcastJobBoardDelta();
         }
         catch (Exception ex) { JobPatchLog.Log.LogError($"OnAccept postfix: {ex}"); }
@@ -76,10 +84,14 @@ public static class OnCollectedPatch
     {
         try
         {
-            if (SessionManager.ApplyingRemoteDelta) return;
+            if (SessionManager.ApplyingRemoteDelta) { JobPatchLog.Log.LogInfo("OnCollected postfix skipped: ApplyingRemoteDelta"); return; }
             var mgr = SessionManager.Current;
+            string jobId = __instance == null ? "<null>" : __instance.GetId().ToString();
+            JobPatchLog.Log.LogInfo("OnCollected postfix: jobId=" + jobId
+                + " mgr=" + (mgr == null ? "null" : ("Role=" + mgr.Role + " IsLive=" + mgr.IsLive)));
             if (mgr == null || !mgr.IsLive || mgr.Role != SessionRole.Host) return;
-            mgr.World.JobBoard.Complete(__instance.GetId().ToString());
+            mgr.World.JobBoard.Complete(jobId);
+            JobPatchLog.Log.LogInfo("OnCollected postfix: broadcasting JobBoardDelta");
             mgr.Host.BroadcastJobBoardDelta();
         }
         catch (Exception ex) { JobPatchLog.Log.LogError($"OnCollected postfix: {ex}"); }
@@ -93,10 +105,14 @@ public static class OnQuitPatch
     {
         try
         {
-            if (SessionManager.ApplyingRemoteDelta) return;
+            if (SessionManager.ApplyingRemoteDelta) { JobPatchLog.Log.LogInfo("OnQuit postfix skipped: ApplyingRemoteDelta"); return; }
             var mgr = SessionManager.Current;
+            string jobId = __instance == null ? "<null>" : __instance.GetId().ToString();
+            JobPatchLog.Log.LogInfo("OnQuit postfix: jobId=" + jobId
+                + " mgr=" + (mgr == null ? "null" : ("Role=" + mgr.Role + " IsLive=" + mgr.IsLive)));
             if (mgr == null || !mgr.IsLive || mgr.Role != SessionRole.Host) return;
-            mgr.World.JobBoard.Release(__instance.GetId().ToString());
+            mgr.World.JobBoard.Release(jobId);
+            JobPatchLog.Log.LogInfo("OnQuit postfix: broadcasting JobBoardDelta");
             mgr.Host.BroadcastJobBoardDelta();
         }
         catch (Exception ex) { JobPatchLog.Log.LogError($"OnQuit postfix: {ex}"); }

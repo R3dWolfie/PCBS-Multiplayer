@@ -33,11 +33,15 @@ public static class SpendCashPatch
     {
         try
         {
-            if (SessionManager.ApplyingRemoteDelta) return;
+            if (SessionManager.ApplyingRemoteDelta) { MoneyPatchLog.Log.LogInfo("SpendCash postfix skipped: ApplyingRemoteDelta"); return; }
             var mgr = SessionManager.Current;
+            MoneyPatchLog.Log.LogInfo("SpendCash postfix: cash=" + cash + " force=" + force + " result=" + __result
+                + " mgr=" + (mgr == null ? "null" : ("Role=" + mgr.Role + " IsLive=" + mgr.IsLive)));
             if (mgr == null || !mgr.IsLive || mgr.Role != SessionRole.Host) return;
             if (!__result) return;
-            mgr.Host.BroadcastMoneyChanged(CareerStatus.Get().GetCash());
+            int total = CareerStatus.Get().GetCash();
+            MoneyPatchLog.Log.LogInfo("SpendCash postfix: broadcasting MoneyChanged total=" + total);
+            mgr.Host.BroadcastMoneyChanged(total);
         }
         catch (Exception ex) { MoneyPatchLog.Log.LogError($"SpendCash postfix: {ex}"); }
     }
@@ -50,10 +54,14 @@ public static class AddCashPatch
     {
         try
         {
-            if (SessionManager.ApplyingRemoteDelta) return;
+            if (SessionManager.ApplyingRemoteDelta) { MoneyPatchLog.Log.LogInfo("AddCash postfix skipped: ApplyingRemoteDelta"); return; }
             var mgr = SessionManager.Current;
+            MoneyPatchLog.Log.LogInfo("AddCash postfix: amount=" + amount
+                + " mgr=" + (mgr == null ? "null" : ("Role=" + mgr.Role + " IsLive=" + mgr.IsLive)));
             if (mgr == null || !mgr.IsLive || mgr.Role != SessionRole.Host) return;
-            mgr.Host.BroadcastMoneyChanged(CareerStatus.Get().GetCash());
+            int total = CareerStatus.Get().GetCash();
+            MoneyPatchLog.Log.LogInfo("AddCash postfix: broadcasting MoneyChanged total=" + total);
+            mgr.Host.BroadcastMoneyChanged(total);
         }
         catch (Exception ex) { MoneyPatchLog.Log.LogError($"AddCash postfix: {ex}"); }
     }

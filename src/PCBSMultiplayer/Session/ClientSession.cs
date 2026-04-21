@@ -40,7 +40,11 @@ public sealed class ClientSession
         _mgr.Router.On<Welcome>(OnWelcome);
         _mgr.Router.On<Bye>(OnBye);
         _mgr.Router.On<ClaimJobResult>(r => LastClaimResult = r);
-        _mgr.Router.On<JobBoardDelta>(d => DeltaApplier.Apply(_mgr.World, d));
+        _mgr.Router.On<JobBoardDelta>(d =>
+        {
+            Log.LogInfo("OnJobBoardDelta: available=" + d.Available.Count + " claimed=" + d.Claimed.Count + " completed=" + d.Completed.Count);
+            DeltaApplier.Apply(_mgr.World, d);
+        });
         _mgr.Router.On<SpendMoneyResult>(r => LastSpendMoneyResult = r);
         _mgr.Router.On<MoneyChanged>(OnMoneyChanged);
         _mgr.Router.On<SaveTransferBegin>(OnSaveTransferBegin);
@@ -93,16 +97,18 @@ public sealed class ClientSession
     {
         DeltaApplier.Apply(_mgr.World, d);
         var career = CareerStatus.Get();
-        if (career == null) return;
+        if (career == null) { Log.LogWarning("OnMoneyChanged: target=" + d.NewTotal + " but CareerStatus.Get() returned null — cannot apply"); return; }
         int current = career.GetCash();
         int target = (int)d.NewTotal;
         int diff = target - current;
+        Log.LogInfo("OnMoneyChanged: target=" + target + " current=" + current + " diff=" + diff);
         if (diff == 0) return;
         SessionManager.ApplyingRemoteDelta = true;
         try
         {
             if (diff > 0) career.AddCash(diff);
             else career.SpendCash(-diff, true);
+            Log.LogInfo("OnMoneyChanged: applied, CareerStatus.GetCash() now=" + career.GetCash());
         }
         finally { SessionManager.ApplyingRemoteDelta = false; }
     }
