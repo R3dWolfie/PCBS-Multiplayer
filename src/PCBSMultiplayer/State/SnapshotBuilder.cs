@@ -1,12 +1,14 @@
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 
 namespace PCBSMultiplayer.State;
 
 public static class SnapshotBuilder
 {
+    // No LINQ / Func`2: Mono 2018 mscorlib 4.0.0.0 cannot JIT methods that reference Func<T,TResult>,
+    // so .Select(Dto) crashes HostSession.OnHello on the live runtime with
+    // "Could not load type 'System.Func`2' from assembly 'mscorlib'".
     public static byte[] Serialize(WorldState state)
     {
         using var ms = new MemoryStream();
@@ -14,9 +16,9 @@ public static class SnapshotBuilder
         w.Write(state.Money);
         w.Write(state.XP);
         w.Write(state.DayIndex);
-        WriteJobs(w, state.JobBoard.Available.Select(Dto));
-        WriteJobs(w, state.JobBoard.Claimed.Values.Select(Dto));
-        WriteJobs(w, state.JobBoard.Completed.Select(Dto));
+        WriteAvailable(w, state.JobBoard.Available);
+        WriteClaimed(w, state.JobBoard.Claimed.Values);
+        WriteAvailable(w, state.JobBoard.Completed);
         w.Flush();
         return ms.ToArray();
     }
@@ -46,13 +48,16 @@ public static class SnapshotBuilder
         return state;
     }
 
-    private static JobDto Dto(Job j) => new() { Id = j.Id, ClaimedBySlot = j.ClaimedBySlot };
-
-    private static void WriteJobs(BinaryWriter w, IEnumerable<JobDto> jobs)
+    private static void WriteAvailable(BinaryWriter w, List<Job> jobs)
     {
-        var list = jobs.ToList();
-        w.Write(list.Count);
-        foreach (var j in list) { w.Write(j.Id); w.Write(j.ClaimedBySlot); }
+        w.Write(jobs.Count);
+        foreach (var j in jobs) { w.Write(j.Id); w.Write(j.ClaimedBySlot); }
+    }
+
+    private static void WriteClaimed(BinaryWriter w, Dictionary<string, Job>.ValueCollection jobs)
+    {
+        w.Write(jobs.Count);
+        foreach (var j in jobs) { w.Write(j.Id); w.Write(j.ClaimedBySlot); }
     }
 
     private static List<JobDto> ReadJobs(BinaryReader r)

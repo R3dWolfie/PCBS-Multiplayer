@@ -2,6 +2,36 @@
 
 All notable changes to PCBS Multiplayer. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer with `-rc` tags for pre-release builds awaiting the closing manual gate.
 
+## [0.3.0-alpha-preview11] — 2026-04-21
+
+Tenth hotfix respin. `preview10`'s router-catch widening paid off: the client log was still unhelpful, but the **host** log surfaced the real bug — `Handler threw: Could not load type 'System.Func\`2' ... at HostSession.OnHello`. `SnapshotBuilder.Serialize` used LINQ (`state.JobBoard.Available.Select(Dto)`), which forced Mono 2018 to JIT a method referencing `Func<T,TResult>` (`Func\`2`), a type the trimmed mscorlib 4.0.0.0 shipped with PCBS cannot load. `OnHello` threw *after* `_transports[slot] = transport` but *before* `transport.Send(new Welcome{…})`, so the client's transport was registered for every subsequent broadcast (StartGame, save chunks, MoneyChanged) but never received Welcome — IsLive stuck False, client's spend/claim actions routed locally instead of through the host.
+
+### Fixed — release-blocking
+
+- **Host's Welcome send was blocked by a Mono 2018 `Func\`2` type-load failure deep inside `SnapshotBuilder.Serialize`.** Rewrote `SnapshotBuilder.Serialize` with plain `foreach` loops over `List<Job>` / `Dictionary<,>.ValueCollection` — no LINQ, no `Func\`2` references anywhere. Also removed the now-unused `using System.Linq;` from `JobBoardState.cs`. Verified: 79/79 xUnit tests still pass on desktop .NET; Mono 2018 will no longer refuse to JIT the method.
+
+### Known-good assumptions
+
+- `MessageRouter`'s widened catch (added in preview10) stays — it's what made this diagnosable at all. Any future silently-swallowed handler exception will now print its type and stack trace.
+- Diagnostic log lines added in preview9/10 (`OnMoneyChanged`, `SpendCash postfix`, `OnAccept postfix`) remain in preview11 so the first post-fix playthrough can confirm `IsLive=True` on the client after `OnWelcome` runs.
+
+## [0.3.0-alpha-preview10] — 2026-04-21 (superseded by preview11)
+
+Ninth hotfix respin. `preview9`'s diagnostic logs proved the client was receiving host MoneyChanged frames fine but sitting at `IsLive=False` — every client-side spend/claim action ran locally instead of routing to the host. Hypothesis at the time: `OnWelcome` was throwing silently inside the snapshot-apply block, so `IsLive = true` (the last line of the handler) never executed.
+
+### Changed
+
+- `ClientSession.OnWelcome` now flips `IsLive = true` *before* applying the snapshot, and wraps the snapshot-apply block in try/catch so a failure can't block the flip. (Turned out to be the wrong layer — see preview11 for the actual root cause.)
+- `MessageRouter.Dispatch` widened its catch: previously it only caught `NotSupportedException`, `EndOfStreamException`, `IOException` — everything else propagated and was silently lost. Now a generic `catch (Exception ex)` logs the message and stack trace, which is what ultimately made preview11 diagnosable.
+
+## [0.3.0-alpha-preview9] — 2026-04-21 (superseded by preview10)
+
+Eighth hotfix respin. `preview8` got both players into the same save, but Plan 2 state sync (money + jobs) didn't propagate between host and client.
+
+### Changed
+
+- **Diagnostic build only, no functional changes.** Added `Log.LogInfo` at every hop in the money + job sync chains: `MoneyPatches.SpendCashPatch.Postfix`, `AddCashPatch.Postfix`, `JobPatches.AddJobPatch/OnAcceptPatch/OnCollectedPatch/OnQuitPatch.Postfix`, `HostSession.BroadcastMoneyChanged`, `HostSession.BroadcastJobBoardDelta`, `ClientSession.OnMoneyChanged`, and the inline `JobBoardDelta` handler lambda. Every hop logs the current `SessionManager.Role` and `IsLive` state so we can pinpoint which gate is silently dropping the signal.
+
 ## [0.3.0-alpha-preview8] — 2026-04-21
 
 Seventh hotfix respin. `preview7` fixed the ordering so `StartGame` arrived before the save bytes — two-machine testing confirmed the client now receives `StartGame`, the save bytes stream in, the `mp-<lobbyId>.binary` file is written to the client's `Saves/<steamid>/` directory, and the client fires `SaveReady`. But PCBS then popped a "Save Game Error" modal: `"Sorry, something went wrong loading the save game 'Saves/76561198117103558/mp-109775242619721885'."` — note the **missing `.binary` extension** in the path. Root cause: the client passed the save name *without* the `.binary` suffix to `LoadGameFromDir`, while the host passes `"auto.binary"` (with suffix). PCBS's loader didn't auto-append the extension, so it looked for `mp-<lobbyId>` (no extension), which doesn't exist on disk.
