@@ -2,6 +2,14 @@
 
 All notable changes to PCBS Multiplayer. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer with `-rc` tags for pre-release builds awaiting the closing manual gate.
 
+## [0.3.0-alpha-preview] — 2026-04-21
+
+Pre-release cut of the Plan 3 join-loop work for early peer-pairing tests. Not yet gated on M4b (two-machine closing validation), so expect rough edges. Published specifically so a host + friend can install matching binaries and exercise the save-sync path together; promote to `0.3.0-alpha` once M4b passes.
+
+### Fixed — release-blocking
+
+- **Plugin version string** — `PluginVersion` is now `"0.3.0.0"` (`System.Version`-parseable) with pre-release info carried as a separate `DisplayVersion = "0.3.0-alpha-preview"` constant used in log/UI strings. BepInEx 5.x's `TryParseLongVersion` rejects anything with a `-suffix` under `[BepInPlugin(…)]`, silently dropping the plugin with `[Warning: BepInEx] Skipping type ... because its version is invalid.` — this was the root cause of the `0.2.0-rc1` installation failing for downstream users. Fresh installs should also delete `BepInEx/cache/chainloader_typeloader.dat` once so BepInEx re-scans instead of remembering any prior "version is invalid" verdict cached from `rc1`.
+
 ## [Unreleased] — Plan 3 (Join Loop)
 
 Implementation complete for tasks P3.B-T1 through P3.B-T10 + T7a. Closing gate M4b (two-machine playtest) pending peer arrangement; promote to `[0.3.0-alpha]` once M4b passes.

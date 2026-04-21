@@ -15,7 +15,10 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
 {
     public const string PluginGuid = "com.pcbs.multiplayer";
     public const string PluginName = "PCBS Multiplayer";
+    // PluginVersion must be System.Version-parseable (digits+dots only) — BepInEx 5.x rejects
+    // SemVer pre-release suffixes like "-rc1" with "Skipping type ... version is invalid".
     public const string PluginVersion = "0.3.0.0";
+    public const string DisplayVersion = "0.3.0-alpha-preview";
 
     public static PCBSMultiplayerPlugin Instance { get; private set; }
 
@@ -63,7 +66,7 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
 
             UI.LobbyPanel.Log = Logger;
 
-            Logger.LogInfo($"PCBS Multiplayer {PluginVersion} loaded. Steam user: {SteamFriends.GetPersonaName()}");
+            Logger.LogInfo($"PCBS Multiplayer {DisplayVersion} loaded. Steam user: {SteamFriends.GetPersonaName()}");
             SweepStaleMpSaves();
         }
         catch (Exception ex)
