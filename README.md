@@ -27,6 +27,8 @@ Co-op multiplayer mod for **PC Building Simulator** (2018, Steam AppID 621060).
 
 The mod is symmetric: host and client install it the same way.
 
+> **Windows users:** follow [**docs/install-windows.md**](docs/install-windows.md) instead — it covers SmartScreen "Unblock", firewall prompts, Steam overlay checks, and troubleshooting in detail.
+
 **1. Install BepInEx 5.4.21 (x64)**
 
 Download from <https://github.com/BepInEx/BepInEx/releases> (pick `BepInEx_x64_5.4.21.0.zip` or newer 5.4.x).
@@ -109,5 +111,6 @@ scripts/deploy-to-game.sh
 ## Project docs
 
 - [CHANGELOG.md](CHANGELOG.md) — release notes
+- [docs/install-windows.md](docs/install-windows.md) — Windows install walkthrough + troubleshooting
 - [docs/manual-tests.md](docs/manual-tests.md) — playtest log
 - [docs/pcbs-recon.md](docs/pcbs-recon.md) — game-side reverse-engineering notes
