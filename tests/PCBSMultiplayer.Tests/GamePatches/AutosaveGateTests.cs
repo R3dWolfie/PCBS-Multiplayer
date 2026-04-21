@@ -12,7 +12,9 @@ public class AutosaveGateTests
     public void Suppresses_when_client_session_live()
     {
         var (a, _) = InMemoryTransport.CreatePair();
-        SessionManager.Current = new SessionManager(SessionRole.Client, a);
+        var mgr = new SessionManager(SessionRole.Client, a);
+        mgr.IsLive = true;
+        SessionManager.Current = mgr;
         try
         {
             AutosavePatches.ShouldSuppress().Should().BeTrue();
@@ -24,7 +26,9 @@ public class AutosaveGateTests
     public void Does_not_suppress_when_host_session_live()
     {
         var (a, _) = InMemoryTransport.CreatePair();
-        SessionManager.Current = new SessionManager(SessionRole.Host, a);
+        var mgr = new SessionManager(SessionRole.Host, a);
+        mgr.IsLive = true;
+        SessionManager.Current = mgr;
         try
         {
             AutosavePatches.ShouldSuppress().Should().BeFalse();
@@ -37,5 +41,17 @@ public class AutosaveGateTests
     {
         SessionManager.Current = null;
         AutosavePatches.ShouldSuppress().Should().BeFalse();
+    }
+
+    [Fact]
+    public void Does_not_suppress_when_client_session_not_live()
+    {
+        var (a, _) = InMemoryTransport.CreatePair();
+        SessionManager.Current = new SessionManager(SessionRole.Client, a);
+        try
+        {
+            AutosavePatches.ShouldSuppress().Should().BeFalse();
+        }
+        finally { SessionManager.Current = null; }
     }
 }

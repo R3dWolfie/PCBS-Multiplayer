@@ -17,14 +17,22 @@ public static class AutosavePatches
     {
         var cur = SessionManager.Current;
         if (cur == null) return false;
-        return cur.Role == SessionRole.Client;
+        return cur.IsLive && cur.Role == SessionRole.Client;
     }
 
     [HarmonyPrefix]
     public static bool Prefix()
     {
-        if (!ShouldSuppress()) return true; // run original
-        Log.LogInfo("Autosave suppressed — client in MP session.");
-        return false; // skip original
+        try
+        {
+            if (!ShouldSuppress()) return true; // run original
+            Log.LogDebug("Autosave suppressed — client in MP session.");
+            return false; // skip original
+        }
+        catch (System.Exception ex)
+        {
+            Log.LogError("AutosavePatches.Prefix threw: " + ex);
+            return true;
+        }
     }
 }
