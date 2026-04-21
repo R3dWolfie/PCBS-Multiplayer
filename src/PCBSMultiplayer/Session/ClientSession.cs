@@ -26,7 +26,7 @@ public sealed class ClientSession
     private string _savesDirAbsolute = "";
     private ulong _lobbyId;
 
-    public event Action<string> SaveReady; // string = save name (without .binary)
+    public event Action<string> SaveReady; // string = save filename including ".binary" (matches host's LoadGameFromDir convention)
 
     public void ConfigureSaveSync(string savesDirAbsolute, ulong lobbyId)
     {
@@ -165,8 +165,12 @@ public sealed class ClientSession
             return;
         }
 
-        string saveName = "mp-" + _lobbyId;
-        string fullPath = Path.Combine(_savesDirAbsolute, saveName + ".binary");
+        // Include ".binary" so LoadGameFromDir(saveName) matches the file on disk.
+        // Host calls LoadGameFromDir("auto.binary", ...) verbatim; the client used to pass
+        // "mp-<lobbyId>" without the extension, so PCBS couldn't find the file and popped
+        // a "Save Game Error" modal referencing the exact extension-less path.
+        string saveName = "mp-" + _lobbyId + ".binary";
+        string fullPath = Path.Combine(_savesDirAbsolute, saveName);
         try
         {
             File.WriteAllBytes(fullPath, bytes);

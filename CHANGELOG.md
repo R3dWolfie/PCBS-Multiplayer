@@ -2,7 +2,15 @@
 
 All notable changes to PCBS Multiplayer. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer with `-rc` tags for pre-release builds awaiting the closing manual gate.
 
-## [0.3.0-alpha-preview7] — 2026-04-21
+## [0.3.0-alpha-preview8] — 2026-04-21
+
+Seventh hotfix respin. `preview7` fixed the ordering so `StartGame` arrived before the save bytes — two-machine testing confirmed the client now receives `StartGame`, the save bytes stream in, the `mp-<lobbyId>.binary` file is written to the client's `Saves/<steamid>/` directory, and the client fires `SaveReady`. But PCBS then popped a "Save Game Error" modal: `"Sorry, something went wrong loading the save game 'Saves/76561198117103558/mp-109775242619721885'."` — note the **missing `.binary` extension** in the path. Root cause: the client passed the save name *without* the `.binary` suffix to `LoadGameFromDir`, while the host passes `"auto.binary"` (with suffix). PCBS's loader didn't auto-append the extension, so it looked for `mp-<lobbyId>` (no extension), which doesn't exist on disk.
+
+### Fixed — release-blocking
+
+- **Client's `LoadGameFromDir` call used the wrong filename.** `ClientSession.OnSaveTransferEnd` constructed `saveName = "mp-" + _lobbyId` (no extension), wrote the file as `saveName + ".binary"` (so the on-disk name was correct), then fired `SaveReady(saveName)` — which propagated the *extension-less* name to `LobbyPanel.OnSaveReady → TryLoadLocally → llp.LoadGameFromDir(saveName, scene)`. Host-side `LoadGameFromDir` is always called with the full `"auto.binary"` filename from the save list and works fine; the asymmetry meant only the client hit the bug. Fix: `saveName` now includes `.binary` end-to-end on the client, and the `SaveReady` contract is documented as "save filename including `.binary`, matching host's `LoadGameFromDir` convention."
+
+## [0.3.0-alpha-preview7] — 2026-04-21 (superseded by preview8)
 
 Sixth hotfix respin. `preview6`'s ready/connecting UI worked as designed — the host could see peers arrive and flip to ready — but two latent bugs in the actual save-transfer flow prevented the client from ever loading into the shared scene. Both were inherited from preview5; preview6 just made them visible by getting the handshake to complete reliably.
 
