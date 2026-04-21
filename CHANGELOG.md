@@ -2,7 +2,20 @@
 
 All notable changes to PCBS Multiplayer. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer with `-rc` tags for pre-release builds awaiting the closing manual gate.
 
-## [0.3.0-alpha-preview11] — 2026-04-21
+## [0.3.0-alpha-preview12] — 2026-04-21
+
+Eleventh hotfix respin. Two-machine play confirmed preview11's Welcome-send fix landed — client reached `OnWelcome: IsLive=true, slot=1`, and subsequent broadcasts flowed. But purchases by either player left both balances unchanged, and the host log showed `[Info :HostSession] BroadcastMoneyChanged: total=1717` (host spending its own cash, fine) with no accompanying client-spend handling. Root cause: `HostSession.OnSpendMoney` arbitrated against `_mgr.World.Money`, a mirror that's only written by `AddCashPatch`/`SpendCashPatch` postfixes — it's **never seeded from the loaded save**, so it reads 0 at session start and rejects every client purchase with `insufficient_funds`.
+
+### Fixed — release-blocking
+
+- **`HostSession.OnSpendMoney` now arbitrates against `CareerStatus` (PCBS's authoritative money state) instead of the unseeded `WorldState.Money` mirror.** Spent amount is debited via `career.SpendCash(amount, true)`, which triggers `SpendCashPatch.Postfix → BroadcastMoneyChanged` to push the new total to all clients. The `CareerStatus` reference lives behind a custom delegate seam (`HostSession.SpendAuthority`) so xUnit tests — which don't ship `Assembly-CSharp.dll` — don't fail at JIT prep time. The default delegate target is a no-op that returns `Usable=false`, causing `OnSpendMoney` to fall through to a mirror-path branch that keeps tests deterministic. `PCBSMultiplayerPlugin.Awake` swaps the delegate to `HostSession.TrySpendViaCareerStatus` once BepInEx has resolved Assembly-CSharp.
+
+### Known-good assumptions
+
+- Same design flaw exists on `HostSession.OnClaimJob` (arbitrates on `WorldState.JobBoard`, also unseeded) — client job claims will still silently fail after preview12. Scoped for a follow-up preview; money is the user-visible path exercised during play.
+- All 79 xUnit tests still green with the delegate seam default.
+
+## [0.3.0-alpha-preview11] — 2026-04-21 (superseded by preview12)
 
 Tenth hotfix respin. `preview10`'s router-catch widening paid off: the client log was still unhelpful, but the **host** log surfaced the real bug — `Handler threw: Could not load type 'System.Func\`2' ... at HostSession.OnHello`. `SnapshotBuilder.Serialize` used LINQ (`state.JobBoard.Available.Select(Dto)`), which forced Mono 2018 to JIT a method referencing `Func<T,TResult>` (`Func\`2`), a type the trimmed mscorlib 4.0.0.0 shipped with PCBS cannot load. `OnHello` threw *after* `_transports[slot] = transport` but *before* `transport.Send(new Welcome{…})`, so the client's transport was registered for every subsequent broadcast (StartGame, save chunks, MoneyChanged) but never received Welcome — IsLive stuck False, client's spend/claim actions routed locally instead of through the host.
 

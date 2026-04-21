@@ -130,21 +130,62 @@ public sealed class HostSession
         });
     }
 
+    // Delegate seam around CareerStatus. The default returns Usable=false so xUnit tests —
+    // which don't ship Assembly-CSharp.dll — never JIT the CareerStatus reference. Inlining
+    // CareerStatus.Get() into OnSpendMoney caused JIT-prep to fail before the try/catch ran,
+    // and the client's SpendMoneyResult never came back. PCBSMultiplayerPlugin.Awake swaps
+    // SpendAuthority to TrySpendViaCareerStatus once BepInEx has loaded Assembly-CSharp.
+    public delegate SpendResult TrySpendAuthority(int amount);
+    public static TrySpendAuthority SpendAuthority = NoopSpendAuthority;
+    private static SpendResult NoopSpendAuthority(int amount) => default;
+
+    public static SpendResult TrySpendViaCareerStatus(int amount)
+    {
+        try
+        {
+            var career = CareerStatus.Get();
+            if (career == null) return default;
+            int cash = career.GetCash();
+            if (cash < amount) return new SpendResult { Usable = true, Accepted = false, NewTotal = cash };
+            career.SpendCash(amount, true);
+            return new SpendResult { Usable = true, Accepted = true, NewTotal = career.GetCash() };
+        }
+        catch { return default; }
+    }
+
     private void OnSpendMoney(ITransport transport, SpendMoneyRequest req)
     {
-        var ok = _mgr.World.Money >= req.Amount;
-        if (ok) _mgr.World.Money -= req.Amount;
+        // PCBS's CareerStatus is authoritative — WorldState.Money is a mirror that's never
+        // seeded from the loaded save (only patched on post-load AddCash/SpendCash), so the
+        // mirror reads 0 at session start and would reject every client purchase. Delegate
+        // through SpendAuthority: prod hits CareerStatus, tests get Usable=false and fall
+        // through to the mirror with its pre-seeded host.World.Money.
+        int amount = (int)req.Amount; // PCBS's CareerStatus.SpendCash takes int; wire type is long.
+        var auth = SpendAuthority(amount);
+        bool ok;
+        if (auth.Usable)
+        {
+            ok = auth.Accepted;
+            if (ok) _mgr.World.Money = auth.NewTotal;
+            // No manual broadcast: SpendCashPatch.Postfix triggers BroadcastMoneyChanged.
+        }
+        else
+        {
+            ok = _mgr.World.Money >= amount;
+            if (ok)
+            {
+                _mgr.World.Money -= amount;
+                var delta = Serializer.Pack(new MoneyChanged { NewTotal = _mgr.World.Money });
+                foreach (var t in _transports.Values) t.Send(delta);
+            }
+        }
+
         transport.Send(Serializer.Pack(new SpendMoneyResult
         {
             RequestId = req.RequestId,
             Accepted = ok,
             DenyReason = ok ? "" : "insufficient_funds"
         }));
-        if (ok)
-        {
-            var delta = Serializer.Pack(new MoneyChanged { NewTotal = _mgr.World.Money });
-            foreach (var t in _transports.Values) t.Send(delta);
-        }
     }
 
     public void BroadcastMoneyChanged(long newTotal)
@@ -232,4 +273,11 @@ public sealed class ClientInfo
     public int Slot { get; set; }
     public ulong SteamId { get; set; }
     public string DisplayName { get; set; } = "";
+}
+
+public struct SpendResult
+{
+    public bool Usable;   // Authority responded (false = caller should fall back to mirror)
+    public bool Accepted; // Spend succeeded
+    public long NewTotal; // Authority's post-spend balance (only meaningful when Usable=true && Accepted=true)
 }
