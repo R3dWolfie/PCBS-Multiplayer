@@ -2,7 +2,19 @@
 
 All notable changes to PCBS Multiplayer. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer with `-rc` tags for pre-release builds awaiting the closing manual gate.
 
-## [0.3.0-alpha-preview6] — 2026-04-21
+## [0.3.0-alpha-preview7] — 2026-04-21
+
+Sixth hotfix respin. `preview6`'s ready/connecting UI worked as designed — the host could see peers arrive and flip to ready — but two latent bugs in the actual save-transfer flow prevented the client from ever loading into the shared scene. Both were inherited from preview5; preview6 just made them visible by getting the handshake to complete reliably.
+
+### Fixed — release-blocking
+
+- **Client received save bytes but dropped them because `StartGame` arrived last.** Host was sending `SaveTransferBegin → SaveChunk… → SaveTransferEnd → StartGame` — in that order. Client's `OnSaveTransferEnd` fires the `SaveReady` event, which calls `LobbyPanel.OnSaveReady` — which reads `_pendingSceneName`. But `_pendingSceneName` is populated from the `StartGame` message, which hadn't arrived yet. Result: `SaveReady but no pending scene; ignoring` in the client log, save bytes sitting on disk unused, client stuck at "Receiving host's save data…" while the host entered the scene alone. Fix: `LobbyPanel.OnHostStartClicked` now sends `StartGame` **before** calling `BeginSaveTransfer`, so `_pendingSceneName` is set before the transfer-end trigger fires. Order is now `StartGame → SaveTransferBegin → SaveChunk… → SaveTransferEnd`, and the client's load path activates on `SaveReady` with the scene name already cached.
+
+### Added — diagnostics
+
+- **Gate refusal now logs `Host.Clients` contents.** When `OnHostStartClicked` refuses with "N peer(s) not ready", the log line now includes the full `HostSession._clients` slot→steamid map plus the `_players` count, so a mismatch between Steam lobby membership and handshaked clients is obvious at a glance. (Preview6 log showed a gate refusal immediately after `OnHello` had logged — source unknown without this diagnostic.)
+
+## [0.3.0-alpha-preview6] — 2026-04-21 (superseded by preview7)
 
 Fifth hotfix respin. `preview5` closed the P2P accept race so the Hello handshake works reliably, but two-machine testing surfaced a different failure: the host clicked "Start Game" before the client's Hello arrived, so `BeginSaveTransfer` iterated an empty `HostSession.Transports` dict and silently sent the save bytes to no one. The client was stuck forever on "Waiting for host's lobby state…" because it never received `Welcome` or `LobbyState`. Compounding the problem, the host's player list only showed peers *after* they'd handshaked — so the host saw an empty lobby and had no visual cue that a friend had joined but wasn't ready yet.
 

@@ -319,13 +319,29 @@ public sealed class LobbyPanel : MonoBehaviour
         if (notReady > 0)
         {
             _errorMessage = "Still waiting for " + firstNotReady + (notReady > 1 ? " and " + (notReady - 1) + " other(s)" : "") + " to finish joining. Try again in a moment.";
-            if (Log != null) Log.LogInfo("OnHostStartClicked refused: " + notReady + " peer(s) not ready");
+            if (Log != null)
+            {
+                var clientIds = new List<string>();
+                foreach (var kv in mgr.Host.Clients) clientIds.Add(kv.Key + "=" + kv.Value.SteamId);
+                Log.LogInfo("OnHostStartClicked refused: " + notReady + " peer(s) not ready. Host.Clients=[" + string.Join(",", clientIds.ToArray()) + "] players=" + _players.Count);
+            }
             return;
         }
 
-        // broadcast save bytes to all clients first — they reassemble while host loads
         string savesDir = ResolveSavesDir();
         if (savesDir == null) { _errorMessage = "Could not resolve SaveLoadSystem.s_saveDir"; return; }
+
+        // Send StartGame FIRST so the client's _pendingSceneName is set before the save
+        // bytes finish arriving. Previously we sent save-bytes first, then StartGame —
+        // that caused the client's SaveReady (fired on SaveTransferEnd) to run with no
+        // pending scene, log "SaveReady but no pending scene; ignoring", and drop the load.
+        // Client log showed this exact ordering: SaveReady warn then "Client received StartGame".
+        var startFrame = Serializer.Pack(new StartGame { SaveName = _selectedSaveName, SceneName = _selectedSceneName });
+        foreach (var t in mgr.Host.Transports)
+        {
+            try { t.Send(startFrame); }
+            catch (Exception ex) { if (Log != null) Log.LogWarning("Send StartGame to a client failed: " + ex.Message); }
+        }
 
         string err;
         bool ok = mgr.Host.BeginSaveTransfer(_selectedSaveName, _selectedSceneName, savesDir, out err);
@@ -334,14 +350,6 @@ public sealed class LobbyPanel : MonoBehaviour
             _errorMessage = "Save transfer failed: " + err;
             if (Log != null) Log.LogError("BeginSaveTransfer: " + err);
             return;
-        }
-
-        // now broadcast the scene-start signal — clients load *after* SaveTransferEnd arrives
-        var startFrame = Serializer.Pack(new StartGame { SaveName = _selectedSaveName, SceneName = _selectedSceneName });
-        foreach (var t in mgr.Host.Transports)
-        {
-            try { t.Send(startFrame); }
-            catch (Exception ex) { if (Log != null) Log.LogWarning("Send StartGame to a client failed: " + ex.Message); }
         }
 
         // host loads its own save locally (unchanged — client receives bytes in parallel)
