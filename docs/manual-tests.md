@@ -210,3 +210,15 @@ Regressions at this tier are almost always in T5/T6/T8/T10 (the Harmony/UI-touch
 **Result:** GO with caveats
 **Summary:** `SaveLoadSystem.s_saveDir` is `public static string` — no publicizer or reflection needed; initialized to `"Saves/<steamID64>"` by `SteamController.SetSaveDirForUser` on Awake. `LoadGameFromDir` takes a bare `name.binary` filename and prepends `s_saveDir + "/"`. The **existing-save (Continue) path is GO**: bytes are on disk before any transfer call. The **new-career (StartNewGame) path is NO-GO for 0.3**: `StartNewGame` performs no disk write whatsoever — the first save only exists after the user manually saves in-game — so `BeginSaveTransfer` would read nothing on a fresh session.
 **Follow-up (caveat):** P3 scope for 0.3 must be restricted to **existing-save path only** (host picks "Continue", not "New Game"). `BeginSaveTransfer` should be triggered from the `ContinueCareer` code path. New-game multiplayer requires a save-on-demand hook (`StartNewGame` → `CreateSaveGame` post scene-load) and is deferred to a later milestone.
+
+---
+
+### 2026-04-22 — P5-T1 recon
+
+Facts captured to `docs/pcbs-recon.md` §"Plan 5: Player controller recon". Verdict: GO.
+
+- Decompiled `Assembly-CSharp.dll` and `Assembly-CSharp-firstpass.dll` via `ilspycmd -lv CSharp10_0`. PCBS game code lives in firstpass (`Assembly-CSharp.dll` is 243KB / 12k lines of third-party sample/demo code; firstpass is 4.2MB / 218k lines of PCBS).
+- Player class: `PCBS.PlayerController : MonoBehaviour` (firstpass line 115703). Singleton access via `FuturLab.WorkshopController.Get().PlayerController`. Fallback locator is `GameObject.FindWithTag("Player")`.
+- Camera: `PlayerController.MainCamera` (public `Camera` property backed by `[SerializeField] private Camera m_camera`). No head-bob intermediary transform — camera is a direct child of the player root. Broadcast `PlayerController.transform.position` for capsule placement.
+- Eye-height: **TBD via live measurement** (source: no hardcoded constant in DLL — camera offset is prefab-serialized `Transform.localPosition`; measure via `MainCamera.transform.localPosition.y` in a Harmony postfix during P5-T2+).
+- Scene: multi-valued — `Workshop_V2` is the default plus DLC variants (`Workshop_DLC1_Starter/Office/TopTier`, `Workshop_DLC2_1/2/3`). Broadcaster gates on `WorkshopController.Get() != null` rather than a scene-name whitelist — the singleton only exists in workshop scenes, naturally excluding `Menu_V2` and `HowToBuildAPC_V2`.

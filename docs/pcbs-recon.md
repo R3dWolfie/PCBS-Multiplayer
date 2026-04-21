@@ -223,3 +223,37 @@ Plan 3 has two viable options:
 ### Go/No-Go verdict for Plan 3
 **GO with caveats** — The save infrastructure is sound and all required APIs are public. The single caveat is the new-career path: `StartNewGame` writes no `.binary`, so `BeginSaveTransfer` cannot serve a new-game session without an extra save-on-demand hook. The recommended 0.3 scope is **existing-save ("Continue") path only**. All other assumptions (s_saveDir visibility, LoadGameFromDir argument convention, GetSaveGames shape) are confirmed GO.
 
+## Plan 5: Player controller recon (P5-T1) — 2026-04-22
+
+### Player controller class
+
+- **Class name:** `PCBS.PlayerController` (assembly `Assembly-CSharp-firstpass.dll`, namespace `PCBS`, defined at `csharp-firstpass.cs:115703`). Plain `MonoBehaviour`, no base class other than `MonoBehaviour`.
+- **Local player locator:** `FuturLab.WorkshopController.Get().PlayerController` (singleton accessor; `WorkshopController.s_instance` is set in `Awake` and exposes `public PlayerController PlayerController => m_playerController`). Fallback inside `WorkshopController.Awake` is `GameObject.FindWithTag("Player").GetComponent<PlayerController>()`, which confirms the player GameObject is tagged `"Player"` — `Camera.main` would also resolve to its child camera if it retains `MainCamera` tag (not verified in source).
+- **Movement model:** `CharacterController.Move(Vector3 motion)` via a sibling `PCBS.Walk` component (`Walk.Move` at `csharp-firstpass.cs:115892`). The player GameObject has a `CharacterController` component accessible via `PlayerController.CharacterController` (lazy-init getter). Position is read/written as `PlayerController.transform.position` (confirmed in `SaveLoadSystem.SaveGameData` at `csharp-firstpass.cs:203549`: `ctrl.PlayerController.transform.position`).
+- **Camera transform path:** `PlayerController.MainCamera` (public `Camera MainCamera => m_camera;`, backed by a `[SerializeField] private Camera m_camera`). The camera is a child of the player root; `Transform` path is `<player>/<camera child>`. `Camera.main` is also used extensively elsewhere (e.g. `WorkStation componentInParent = Camera.main.GetComponentInParent<WorkStation>()`), so `Camera.main` is expected to resolve inside workshop scenes — but for Plan 5 the **canonical access is `WorkshopController.Get().PlayerController.MainCamera`** which avoids tag-resolution flakiness during scene transitions.
+
+### Eye-height
+
+- Source of truth: **TBD via live measurement**. No hardcoded constant for eye-height exists in the decompiled player-controller source. The camera's local offset is a prefab-serialized `Transform.localPosition` on the child `m_camera` GameObject — not visible in the decompiled C# (prefab data lives in the Unity asset bundle, not the DLL). There is no `cameraOffset`/`eyeHeight`/`headOffset` field on `PlayerController`, `Walk`, or `MouseLook`. `MouseLook` only owns rotation state (`rotationX`/`rotationY`), not position.
+- **Computed offset** (camera root minus player root): `TBD — measure live` via `PlayerController.MainCamera.transform.localPosition.y` in a Harmony postfix on `PlayerController.Update` once the broadcaster lands (or via a one-shot debug hotkey during P5 smoke). Expected value is in the ~1.6–1.8 m range based on Unity's default `CharacterController` (height=2.0, center.y=1.0) and typical FPS camera offset, but **do not assume — measure**.
+- Capsule `Vector3.up * 0.9f` offset for P5-T10 (capsule center sits 1.0 m above base): the default `0.9f` in the spec is **TBD** until eye-height is measured. If measured eye-height is ~1.8 m, the capsule centre-above-feet is 0.9 m and the spec default holds. If eye-height differs, adjust so remote capsule-centre sits at `measured_eye_y - 0.9` (i.e. capsule feet rest on the same plane as `PlayerController.transform.position.y`).
+
+### Scene
+
+- Workshop scene name (as it appears in `StartGame.SceneName`): **multi-valued** — taken from `SaveGameHeader.m_scene` on the host's selected save. Default is `"Workshop_V2"` (`LevelLoadPersistency.kDefaultWorkshopSceneName` at `csharp-firstpass.cs:202444`). Known DLC workshop scenes observed in source:
+  - `Workshop_V2` (default career workshop)
+  - `Workshop_DLC1_Starter`, `Workshop_DLC1_Office`, `Workshop_DLC1_TopTier` (DLC1 eSports chain)
+  - `Workshop_DLC2_1`, `Workshop_DLC2_2`, `Workshop_DLC2_3` (DLC2 IT Support chain)
+  - `HowToBuildAPC_V2` is the tutorial scene — **should NOT broadcast** (solo-only, not multiplayer-supported).
+  - `Menu_V2` is the main menu — **must NOT broadcast**.
+- **Recommended gate for Plan 5 broadcaster:** instead of a hardcoded scene-name whitelist, gate on `FuturLab.WorkshopController.Get() != null && WorkshopController.Get().PlayerController != null`. The `WorkshopController` singleton only exists in workshop scenes (set in `WorkshopController.Awake`), so this check naturally excludes `Menu_V2`, `HowToBuildAPC_V2`, and every non-workshop scene. Optionally also verify `SceneManager.GetActiveScene().name != "HowToBuildAPC_V2"` as defence-in-depth.
+
+### Head-bob / FOV flags
+
+- Head-bob: **NO SEPARATE TRANSFORM**. Zero matches for `HeadBob`/`bobCurve`/`bobAmount`/`bobSpeed` in `Assembly-CSharp-firstpass.dll`. The camera is a direct child of the player root; `MouseLook` only applies rotation to its own transform, never position. The stable position source to broadcast is **`PlayerController.transform.position`** (feet/capsule base) for P5 capsule placement. Camera-world-position (`PlayerController.MainCamera.transform.position`) is the source of truth for eye-height derivation but is NOT needed on the wire — the remote end reconstructs eye-height from `posY + eye_offset` locally.
+- FOV: not stored on `PlayerController` — there is no `fieldOfView`/`FOV` field on `PlayerController`, `Walk`, or `MouseLook`. FOV is whatever Unity inspector value is baked into the camera prefab (game uses Unity's default `Camera.fieldOfView`, plus per-shader tweaks in post-processing stacks). **Does not affect remote capsule rendering** — FOV is a local render-only effect. Confirmed NOT serialized into saves (no `fieldOfView` field on `SaveGame`).
+
+### Verdict
+
+`GO` — three of the four facts captured with high confidence (class/locator, camera path, scene gating strategy). Eye-height is explicitly deferred to live measurement in P5-T2+ (hardcoded value does not exist in the DLL; this is expected for Unity prefab-driven offsets and is not a blocker). Plan 5 broadcaster can proceed against `WorkshopController.Get().PlayerController` as its local-player source, broadcasting `PlayerController.transform.position` + `MouseLook.rotationX`/`rotationY` (or derived quaternion) on a tick, with a scene gate of `WorkshopController.Get() != null`.
+
