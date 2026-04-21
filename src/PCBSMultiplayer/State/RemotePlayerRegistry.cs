@@ -29,8 +29,10 @@ public sealed class RemotePlayerRegistry
     public void ApplySample(int slot, float posX, float posY, float posZ, float yaw, uint seq, long nowMs)
     {
         if (!_bySlot.TryGetValue(slot, out var p)) return;
+        // Update LastSeenMs BEFORE the seq-drop: a replayed/duplicate packet still
+        // proves the peer is alive, so PruneStale should not evict them.
         p.LastSeenMs = nowMs;
-        if (seq <= p.LastSeq) return;  // out-of-order or replay — drop
+        if (seq <= p.LastSeq) return;  // out-of-order or replay — drop sample, keep liveness
         p.PrevPosX = p.PosX; p.PrevPosY = p.PosY; p.PrevPosZ = p.PosZ;
         p.PrevYaw = p.Yaw;
         p.PosX = posX; p.PosY = posY; p.PosZ = posZ;

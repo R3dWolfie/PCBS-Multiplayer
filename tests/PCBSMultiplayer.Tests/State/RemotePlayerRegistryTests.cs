@@ -19,6 +19,20 @@ public sealed class RemotePlayerRegistryTests
     }
 
     [Fact]
+    public void Register_on_existing_slot_preserves_pose_and_seq()
+    {
+        var r = new RemotePlayerRegistry();
+        r.Register(1, 10UL, "old");
+        r.ApplySample(1, 5f, 0f, 0f, 90f, 7u, 100L);
+        r.Register(1, 20UL, "new");
+        Assert.True(r.TryGet(1, out var p));
+        Assert.Equal(20UL, p.SteamId);       // identity replaced
+        Assert.Equal("new", p.DisplayName);  // identity replaced
+        Assert.Equal(5f, p.PosX);            // pose preserved
+        Assert.Equal(7u, p.LastSeq);         // seq preserved
+    }
+
+    [Fact]
     public void ApplySample_with_increasing_seq_updates_state()
     {
         var r = new RemotePlayerRegistry();
@@ -32,6 +46,19 @@ public sealed class RemotePlayerRegistryTests
         Assert.Equal(1u, p.LastSeq);
         Assert.Equal(100L, p.LastSampleMs);
         Assert.Equal(100L, p.LastSeenMs);
+    }
+
+    [Fact]
+    public void ApplySample_with_equal_seq_is_noop()
+    {
+        var r = new RemotePlayerRegistry();
+        r.Register(1, 0UL, "");
+        r.ApplySample(1, 10f, 0f, 0f, 0f, 5u, 100L);
+        r.ApplySample(1, 999f, 0f, 0f, 0f, 5u, 200L); // equal seq
+        Assert.True(r.TryGet(1, out var p));
+        Assert.Equal(10f, p.PosX);           // unchanged (boundary: seq<=LastSeq drops)
+        Assert.Equal(100L, p.LastSampleMs);  // unchanged
+        Assert.Equal(200L, p.LastSeenMs);    // BUT LastSeenMs did update (liveness preserved)
     }
 
     [Fact]
