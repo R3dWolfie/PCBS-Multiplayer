@@ -42,8 +42,17 @@ public sealed class SessionManager
         else _client = new ClientSession(this);
     }
 
-    public void Tick()
+    public void Tick() => Tick(_lastSeenMsStamp);
+
+    // Scene loads (and alt-tab-then-return) block Unity's Update loop for seconds at a time,
+    // while Time.unscaledTime keeps advancing at wall-clock. Without a fresh nowMs, Tick
+    // would stamp last_seen with the pre-pause timestamp — the very next Heartbeat would
+    // then see a multi-TimeoutMs gap on a client whose queued frames just arrived, start a
+    // grace timer, and (once grace elapsed) wipe the transport from _transports so every
+    // subsequent broadcast went to nobody.
+    public void Tick(long nowMs)
     {
+        _lastSeenMsStamp = nowMs;
         if (Role == SessionRole.Client)
         {
             while (Transport.TryReceive(out var frame))
@@ -54,7 +63,8 @@ public sealed class SessionManager
             foreach (var e in _clientTransports)
                 while (e.Transport.TryReceive(out var frame))
                 {
-                    _lastSeenMs[e.Transport] = _lastSeenMsStamp;
+                    _lastSeenMs[e.Transport] = nowMs;
+                    _host?.CancelGraceFor(e.Transport);
                     e.Router.Dispatch(frame);
                 }
         }

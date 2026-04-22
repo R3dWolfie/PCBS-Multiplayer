@@ -124,8 +124,8 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
             mgr.PumpHostTransports();
         }
 
-        mgr.Tick();
         long nowMs = (long)(Time.unscaledTime * 1000f);
+        mgr.Tick(nowMs);
         if (mgr.Role == SessionRole.Client && mgr.IsLive) mgr.Client.MaybeSendHeartbeat(nowMs);
         mgr.Heartbeat(nowMs);
     }

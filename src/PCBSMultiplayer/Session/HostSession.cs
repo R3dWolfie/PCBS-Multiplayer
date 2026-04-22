@@ -46,6 +46,18 @@ public sealed class HostSession
     internal void TickGrace(long nowMs) => _grace.Tick(nowMs);
     internal void SetLastHeartbeat(long nowMs) => _lastHeartbeatMs = nowMs;
 
+    // Called from SessionManager.Tick when a frame actually lands from this transport —
+    // proves the client is alive, so any pending grace entry for it is obsolete. If this
+    // isn't cancelled here, a transient 3s+ stall (scene load, OS hiccup) can start grace,
+    // the client can recover and keep talking, and yet grace would elapse and yank the
+    // transport out of _transports anyway, silently breaking broadcasts.
+    public void CancelGraceFor(ITransport transport)
+    {
+        if (!_slotByTransport.TryGetValue(transport, out var slot)) return;
+        if (!_inGrace.Remove(slot)) return;
+        _grace.Cancel($"client-{slot}");
+    }
+
     public HostSession(SessionManager mgr)
     {
         _mgr = mgr;
