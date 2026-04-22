@@ -16,6 +16,14 @@ public sealed class BroadcasterTick
         _periodMs = periodMs;
     }
 
+    public void Reset()
+    {
+        AccumMs = 0f;
+        // NOTE: do NOT reset _seq — a reconnect should pick up where we left off
+        // so stale samples from a dropped session get seq-dropped on the remote
+        // (the peer's RemotePlayerRegistry still has the old LastSeq).
+    }
+
     public int Advance(float deltaMs, out uint lastSeq)
     {
         AccumMs += deltaMs;

@@ -92,6 +92,8 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
             panic.EnableEntry = _enabled;
             panic.Log = Logger;
 
+            gameObject.AddComponent<Session.PlayerSnapshotBroadcaster>();
+
             UI.LobbyPanel.Log = Logger;
 
             Logger.LogInfo($"PCBS Multiplayer {DisplayVersion} loaded. Steam user: {SteamFriends.GetPersonaName()}");
