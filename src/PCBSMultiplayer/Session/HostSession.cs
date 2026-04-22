@@ -59,6 +59,7 @@ public sealed class HostSession
         router.On<Hello>(h => OnHello(transport, h));
         router.On<ClaimJobRequest>(r => OnClaimJob(transport, r));
         router.On<SpendMoneyRequest>(r => OnSpendMoney(transport, r));
+        router.On<TransformUpdate>(m => OnTransformUpdate(transport, m));
         _mgr.AttachClientTransport(transport, router);
     }
 
@@ -126,6 +127,31 @@ public sealed class HostSession
             DenyReason = ok ? "" : "already_claimed_or_missing"
         }));
         if (ok) BroadcastJobBoardDelta();
+    }
+
+    private void OnTransformUpdate(ITransport fromTransport, TransformUpdate msg)
+    {
+        // Spoof guard: whatever Slot the client set on the wire is ignored —
+        // host authoritatively rewrites it to the sender's assigned slot.
+        if (!_slotByTransport.TryGetValue(fromTransport, out int fromSlot)) return;
+        msg.Slot = (byte)fromSlot;
+
+        // Update our own registry so the host sees this client's capsule.
+        // _lastHeartbeatMs is 0 until the first Heartbeat tick; a TransformUpdate can
+        // arrive earlier in the same Update() frame (Tick runs before Heartbeat), so
+        // fall back to UnityEngine.Time so the registry entry doesn't stamp LastSeenMs=0
+        // and get immediately pruned.
+        long nowMs = _lastHeartbeatMs > 0 ? _lastHeartbeatMs : (long)(UnityEngine.Time.unscaledTime * 1000f);
+        _mgr.RemoteRegistry.ApplySample(fromSlot, msg.PosX, msg.PosY, msg.PosZ, msg.Yaw, msg.Seq, nowMs);
+
+        // Relay to every other client transport, re-packed with the corrected slot.
+        byte[] relay = Serializer.Pack(msg);
+        foreach (var kv in _transports)
+        {
+            if (kv.Value == fromTransport) continue;
+            try { kv.Value.SendUnreliable(relay, channel: 1); }
+            catch (System.Exception ex) { Log.LogWarning("Relay TransformUpdate slot=" + fromSlot + " failed: " + ex.Message); }
+        }
     }
 
     internal void RemoveClient(ITransport transport)

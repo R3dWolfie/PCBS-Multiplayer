@@ -79,6 +79,7 @@ public sealed class ClientSession
         _mgr.Router.On<SaveTransferBegin>(OnSaveTransferBegin);
         _mgr.Router.On<SaveChunk>(OnSaveChunk);
         _mgr.Router.On<SaveTransferEnd>(OnSaveTransferEnd);
+        _mgr.Router.On<TransformUpdate>(OnTransformUpdate);
     }
 
     public void SayHello()
@@ -190,6 +191,21 @@ public sealed class ClientSession
             RequestId = (_nextRequestId++).ToString(),
             JobId = jobId
         }));
+    }
+
+    private void OnTransformUpdate(TransformUpdate msg)
+    {
+        // Lazy register with placeholder identity if the peer is unknown. Host doesn't
+        // broadcast a PlayerJoined message yet (deferred to Plan 6), so TransformUpdate
+        // is the "first sight" signal for client-to-client peers. SteamId stays 0 until
+        // a dedicated identity message lands — which means the avatar falls back to
+        // the gray placeholder until then.
+        if (!_mgr.RemoteRegistry.TryGet(msg.Slot, out _))
+        {
+            _mgr.RemoteRegistry.Register(msg.Slot, steamId: 0UL, name: "Player " + msg.Slot);
+        }
+        long now = (long)(UnityEngine.Time.unscaledTime * 1000f);
+        _mgr.RemoteRegistry.ApplySample(msg.Slot, msg.PosX, msg.PosY, msg.PosZ, msg.Yaw, msg.Seq, now);
     }
 
     private void OnSaveTransferBegin(SaveTransferBegin msg)
