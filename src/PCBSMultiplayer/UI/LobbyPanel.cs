@@ -32,23 +32,9 @@ public sealed class LobbyPanel : MonoBehaviour
     private int _selectedIndex = -1;
     private string _newCareerName = "Multiplayer-Career";
 
-    private static readonly Color NavyDeep    = new Color(0.07f, 0.09f, 0.18f, 0.96f);
-    private static readonly Color NavyPanel   = new Color(0.11f, 0.14f, 0.28f, 1f);
-    private static readonly Color NavyRow     = new Color(0.15f, 0.19f, 0.36f, 1f);
-    private static readonly Color NavyRowAlt  = new Color(0.13f, 0.16f, 0.30f, 1f);
-    private static readonly Color Divider     = new Color(0.25f, 0.30f, 0.55f, 1f);
-    private static readonly Color Accent      = new Color(0.32f, 0.72f, 0.95f, 1f);
-    private static readonly Color AccentHover = new Color(0.45f, 0.82f, 1.0f, 1f);
-    private static readonly Color Select      = new Color(0.22f, 0.85f, 0.48f, 1f);
-    private static readonly Color TextLight   = new Color(0.94f, 0.95f, 0.97f, 1f);
-    private static readonly Color TextDim     = new Color(0.68f, 0.72f, 0.82f, 1f);
-    private static readonly Color TextError   = new Color(1.0f, 0.48f, 0.48f, 1f);
-    private static readonly Color BtnIdle     = new Color(0.20f, 0.25f, 0.48f, 1f);
-    private static readonly Color BtnHover    = new Color(0.28f, 0.36f, 0.65f, 1f);
-    private static readonly Color BtnDisabled = new Color(0.15f, 0.17f, 0.22f, 1f);
-
     private static GUIStyle _titleStyle, _h2Style, _labelStyle, _dimStyle, _rowStyle, _rowSelStyle, _btnStyle, _btnPrimaryStyle, _btnDangerStyle;
-    private static Texture2D _navyTex, _navyRowTex, _navyAltTex, _dividerTex, _btnIdleTex, _btnHoverTex, _btnDisTex, _selTex, _selHoverTex, _primaryTex, _primaryHoverTex, _dangerTex, _dangerHoverTex;
+    private static Texture2D _bgDeepTex, _bgPanelTex, _rowTex, _rowAltTex, _dividerTex, _btnIdleTex, _btnHoverTex, _btnDisTex, _selRowTex, _selRowHiTex, _primaryTex, _primaryHoverTex, _dangerTex, _dangerHoverTex;
+    private static Texture2D _accentBarTex, _readyBarTex, _emptyRowTex, _newCareerTex, _errBgTex, _infoBgTex, _rowHoverTex;
     private static bool _stylesBuilt;
 
     public static void ShowForHost()
@@ -411,63 +397,61 @@ public sealed class LobbyPanel : MonoBehaviour
         }
     }
 
-    private static Texture2D SolidTex(Color c)
-    {
-        var t = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-        var px = new Color[4]; for (int i = 0; i < 4; i++) px[i] = c;
-        t.SetPixels(px); t.Apply();
-        t.hideFlags = HideFlags.HideAndDontSave;
-        return t;
-    }
-
     private static void BuildStyles()
     {
         if (_stylesBuilt) return;
-        _navyTex       = SolidTex(NavyDeep);
-        _navyRowTex    = SolidTex(NavyRow);
-        _navyAltTex    = SolidTex(NavyRowAlt);
-        _dividerTex    = SolidTex(Divider);
-        _btnIdleTex    = SolidTex(BtnIdle);
-        _btnHoverTex   = SolidTex(BtnHover);
-        _btnDisTex     = SolidTex(BtnDisabled);
-        _selTex        = SolidTex(new Color(0.16f, 0.38f, 0.28f, 1f));
-        _selHoverTex   = SolidTex(new Color(0.22f, 0.52f, 0.36f, 1f));
-        _primaryTex    = SolidTex(new Color(0.18f, 0.55f, 0.88f, 1f));
-        _primaryHoverTex = SolidTex(new Color(0.28f, 0.68f, 1.0f, 1f));
-        _dangerTex     = SolidTex(new Color(0.55f, 0.22f, 0.26f, 1f));
-        _dangerHoverTex = SolidTex(new Color(0.75f, 0.30f, 0.34f, 1f));
+        _bgDeepTex      = PcbsTheme.SolidTex(PcbsTheme.BgDeep);
+        _bgPanelTex     = PcbsTheme.SolidTex(PcbsTheme.BgPanel);
+        _rowTex         = PcbsTheme.SolidTex(PcbsTheme.Row);
+        _rowAltTex      = PcbsTheme.SolidTex(PcbsTheme.RowAlt);
+        _rowHoverTex    = PcbsTheme.SolidTex(PcbsTheme.RowHover);
+        _dividerTex     = PcbsTheme.SolidTex(PcbsTheme.Divider);
+        _btnIdleTex     = PcbsTheme.SolidTex(PcbsTheme.BtnIdle);
+        _btnHoverTex    = PcbsTheme.SolidTex(PcbsTheme.BtnHover);
+        _btnDisTex      = PcbsTheme.SolidTex(PcbsTheme.BtnDis);
+        _selRowTex      = PcbsTheme.SolidTex(PcbsTheme.SelRow);
+        _selRowHiTex    = PcbsTheme.SolidTex(PcbsTheme.SelRowHi);
+        _primaryTex     = PcbsTheme.SolidTex(PcbsTheme.Accent);
+        _primaryHoverTex= PcbsTheme.SolidTex(PcbsTheme.AccentHi);
+        _dangerTex      = PcbsTheme.SolidTex(PcbsTheme.Danger);
+        _dangerHoverTex = PcbsTheme.SolidTex(PcbsTheme.DangerHi);
+        _accentBarTex   = PcbsTheme.SolidTex(PcbsTheme.Accent);
+        _readyBarTex    = PcbsTheme.SolidTex(PcbsTheme.Ready);
+        _emptyRowTex    = PcbsTheme.SolidTex(PcbsTheme.EmptyRow);
+        _newCareerTex   = PcbsTheme.SolidTex(PcbsTheme.NewCareer);
+        _errBgTex       = PcbsTheme.SolidTex(PcbsTheme.ErrBg);
+        _infoBgTex      = PcbsTheme.SolidTex(PcbsTheme.InfoBg);
 
-        _titleStyle = new GUIStyle { fontSize = 32, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        _titleStyle.normal.textColor = TextLight;
+        _titleStyle = new GUIStyle { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+        _titleStyle.normal.textColor = PcbsTheme.TextLight;
         _titleStyle.padding = new RectOffset(0, 0, 0, 0);
 
         _h2Style = new GUIStyle { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
-        _h2Style.normal.textColor = TextLight;
+        _h2Style.normal.textColor = PcbsTheme.TextLight;
         _h2Style.padding = new RectOffset(4, 4, 0, 0);
 
         _labelStyle = new GUIStyle { fontSize = 18, alignment = TextAnchor.MiddleLeft };
-        _labelStyle.normal.textColor = TextLight;
+        _labelStyle.normal.textColor = PcbsTheme.TextLight;
         _labelStyle.padding = new RectOffset(4, 4, 0, 0);
 
         _dimStyle = new GUIStyle(_labelStyle);
-        _dimStyle.normal.textColor = TextDim;
+        _dimStyle.normal.textColor = PcbsTheme.TextDim;
         _dimStyle.fontSize = 15;
 
         _rowStyle = new GUIStyle { fontSize = 17, alignment = TextAnchor.MiddleLeft, fontStyle = FontStyle.Normal };
         _rowStyle.padding = new RectOffset(14, 14, 6, 6);
-        _rowStyle.normal.background = _navyRowTex;
-        _rowStyle.normal.textColor = TextLight;
-        _rowStyle.hover.background = SolidTex(new Color(0.19f, 0.24f, 0.45f, 1f));
-        _rowStyle.hover.textColor = TextLight;
-        _rowStyle.active.background = _rowStyle.hover.background;
-        _rowStyle.active.textColor = TextLight;
+        _rowStyle.normal.background = _rowTex;
+        _rowStyle.normal.textColor = PcbsTheme.TextLight;
+        _rowStyle.hover.background = _rowHoverTex;
+        _rowStyle.hover.textColor = PcbsTheme.TextLight;
+        _rowStyle.active.background = _rowHoverTex;
+        _rowStyle.active.textColor = PcbsTheme.TextLight;
         _rowStyle.wordWrap = false;
-        _rowStyle.alignment = TextAnchor.MiddleLeft;
 
         _rowSelStyle = new GUIStyle(_rowStyle);
-        _rowSelStyle.normal.background = _selTex;
-        _rowSelStyle.hover.background = _selHoverTex;
-        _rowSelStyle.active.background = _selHoverTex;
+        _rowSelStyle.normal.background = _selRowTex;
+        _rowSelStyle.hover.background = _selRowHiTex;
+        _rowSelStyle.active.background = _selRowHiTex;
         _rowSelStyle.normal.textColor = new Color(0.94f, 1f, 0.96f, 1f);
         _rowSelStyle.hover.textColor = _rowSelStyle.normal.textColor;
         _rowSelStyle.fontStyle = FontStyle.Bold;
@@ -475,21 +459,39 @@ public sealed class LobbyPanel : MonoBehaviour
         _btnStyle = new GUIStyle { fontSize = 18, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
         _btnStyle.padding = new RectOffset(12, 12, 8, 8);
         _btnStyle.normal.background = _btnIdleTex;
-        _btnStyle.normal.textColor = TextLight;
+        _btnStyle.normal.textColor = PcbsTheme.TextLight;
         _btnStyle.hover.background = _btnHoverTex;
-        _btnStyle.hover.textColor = TextLight;
+        _btnStyle.hover.textColor = PcbsTheme.TextLight;
         _btnStyle.active.background = _btnHoverTex;
-        _btnStyle.active.textColor = TextLight;
+        _btnStyle.active.textColor = PcbsTheme.TextLight;
 
         _btnPrimaryStyle = new GUIStyle(_btnStyle);
         _btnPrimaryStyle.normal.background = _primaryTex;
         _btnPrimaryStyle.hover.background = _primaryHoverTex;
         _btnPrimaryStyle.active.background = _primaryHoverTex;
+        // Orange is bright — black label reads cleaner than white on the PCBS accent.
+        _btnPrimaryStyle.normal.textColor = new Color(0.08f, 0.06f, 0.02f, 1f);
+        _btnPrimaryStyle.hover.textColor  = _btnPrimaryStyle.normal.textColor;
+        _btnPrimaryStyle.active.textColor = _btnPrimaryStyle.normal.textColor;
 
         _btnDangerStyle = new GUIStyle(_btnStyle);
         _btnDangerStyle.normal.background = _dangerTex;
         _btnDangerStyle.hover.background = _dangerHoverTex;
         _btnDangerStyle.active.background = _dangerHoverTex;
+
+        var f = PcbsTheme.GetFont();
+        if (f != null)
+        {
+            _titleStyle.font = f;
+            _h2Style.font = f;
+            _labelStyle.font = f;
+            _dimStyle.font = f;
+            _rowStyle.font = f;
+            _rowSelStyle.font = f;
+            _btnStyle.font = f;
+            _btnPrimaryStyle.font = f;
+            _btnDangerStyle.font = f;
+        }
 
         _stylesBuilt = true;
     }
@@ -532,13 +534,15 @@ public sealed class LobbyPanel : MonoBehaviour
         GUI.color = fullPrev;
 
         // Panel background
-        FillRect(new Rect(x, y, winW, winH), _navyTex);
+        FillRect(new Rect(x, y, winW, winH), _bgDeepTex);
 
-        // Title bar
+        // Title bar + a thin accent strip under it (the PCBS orange seam reads as "this
+        // screen belongs to the game", separating title from content the same way the
+        // base menu's career banners do).
         float titleH = 68f;
-        FillRect(new Rect(x, y, winW, titleH), SolidTex(NavyPanel));
+        FillRect(new Rect(x, y, winW, titleH), _bgPanelTex);
         GUI.Label(new Rect(x, y, winW, titleH), _isHost ? "MULTIPLAYER LOBBY" : "MULTIPLAYER LOBBY — GUEST", _titleStyle);
-        FillRect(new Rect(x, y + titleH, winW, 2f), _dividerTex);
+        FillRect(new Rect(x, y + titleH, winW, 3f), _accentBarTex);
 
         // Content area
         float contentY = y + titleH + 16f;
@@ -559,19 +563,23 @@ public sealed class LobbyPanel : MonoBehaviour
         float listH = contentH - 40f;
 
         // Player list
-        FillRect(new Rect(col1X, listY, col1W, listH), SolidTex(NavyRowAlt));
+        FillRect(new Rect(col1X, listY, col1W, listH), _rowAltTex);
         float py = listY + 8f;
         for (int i = 0; i < _players.Count; i++)
         {
             var p = _players[i];
             var rowRect = new Rect(col1X + 6f, py, col1W - 12f, 42f);
-            var rowBg = (i % 2 == 0) ? _navyRowTex : _navyAltTex;
+            var rowBg = (i % 2 == 0) ? _rowTex : _rowAltTex;
             FillRect(rowRect, rowBg);
-            if (p.IsHost) FillRect(new Rect(rowRect.x, rowRect.y, 4f, rowRect.height), SolidTex(Accent));
+            // Host gets the PCBS orange bar, ready guests get the PCBS green bar —
+            // matches the "optional-objective orange / complete-tick green" split used
+            // in the base UI, so the colors carry the same semantic here.
+            if (p.IsHost) FillRect(new Rect(rowRect.x, rowRect.y, 4f, rowRect.height), _accentBarTex);
+            else if (p.IsReady) FillRect(new Rect(rowRect.x, rowRect.y, 4f, rowRect.height), _readyBarTex);
             var badge = p.IsHost ? "HOST  " : "GUEST ";
             var badgeStyle = new GUIStyle(_labelStyle);
             badgeStyle.fontStyle = FontStyle.Bold;
-            badgeStyle.normal.textColor = p.IsHost ? Accent : TextDim;
+            badgeStyle.normal.textColor = p.IsHost ? PcbsTheme.Accent : PcbsTheme.TextDim;
             badgeStyle.fontSize = 14;
             GUI.Label(new Rect(rowRect.x + 14f, rowRect.y, 80f, rowRect.height), badge, badgeStyle);
 
@@ -583,7 +591,7 @@ public sealed class LobbyPanel : MonoBehaviour
                 var statusStyle = new GUIStyle(_labelStyle);
                 statusStyle.alignment = TextAnchor.MiddleRight;
                 statusStyle.fontSize = 14;
-                statusStyle.normal.textColor = p.IsReady ? Select : TextError;
+                statusStyle.normal.textColor = p.IsReady ? PcbsTheme.Ready : PcbsTheme.TextError;
                 string statusText = p.IsReady ? "● ready" : "◌ connecting…";
                 GUI.Label(new Rect(rowRect.x + rowRect.width - 150f, rowRect.y, 136f, rowRect.height), statusText, statusStyle);
             }
@@ -592,12 +600,12 @@ public sealed class LobbyPanel : MonoBehaviour
         if (_players.Count < 4)
         {
             var emptyRect = new Rect(col1X + 6f, py, col1W - 12f, 42f);
-            FillRect(emptyRect, SolidTex(new Color(0.10f, 0.12f, 0.22f, 1f)));
+            FillRect(emptyRect, _emptyRowTex);
             GUI.Label(new Rect(emptyRect.x + 14f, emptyRect.y, emptyRect.width - 28f, emptyRect.height), "waiting for invite…", _dimStyle);
         }
 
         // Save list (host) or "waiting" (client)
-        FillRect(new Rect(col2X, listY, col2W, listH), SolidTex(NavyRowAlt));
+        FillRect(new Rect(col2X, listY, col2W, listH), _rowAltTex);
 
         if (_isHost)
         {
@@ -608,13 +616,15 @@ public sealed class LobbyPanel : MonoBehaviour
             // New career bar (above save list)
             float ncBarH = 56f;
             var ncBar = new Rect(col2X, listY, col2W, ncBarH);
-            FillRect(ncBar, SolidTex(new Color(0.14f, 0.22f, 0.38f, 1f)));
+            FillRect(ncBar, _newCareerTex);
             var ncLbl = new GUIStyle(_dimStyle); ncLbl.fontSize = 13;
             GUI.Label(new Rect(ncBar.x + 10f, ncBar.y + 2f, 200f, 18f), "Start fresh career as:", ncLbl);
             var tfStyle = new GUIStyle(GUI.skin.textField);
             tfStyle.fontSize = 16;
             tfStyle.alignment = TextAnchor.MiddleLeft;
             tfStyle.padding = new RectOffset(8, 8, 4, 4);
+            var tfFont = PcbsTheme.GetFont();
+            if (tfFont != null) tfStyle.font = tfFont;
             var tfRect = new Rect(ncBar.x + 10f, ncBar.y + 22f, col2W - 220f, 30f);
             _newCareerName = GUI.TextField(tfRect, _newCareerName ?? "", 64, tfStyle);
             var ncBtnRect = new Rect(ncBar.x + col2W - 200f, ncBar.y + 8f, 190f, 40f);
@@ -638,8 +648,8 @@ public sealed class LobbyPanel : MonoBehaviour
                 var rect = new Rect(4f, i * (rowH + 4) + 4f, col2W - 32f, rowH);
                 var selected = (i == _selectedIndex);
 
-                FillRect(rect, selected ? _selTex : (i % 2 == 0 ? _navyRowTex : _navyAltTex));
-                if (selected) FillRect(new Rect(rect.x, rect.y, 4f, rect.height), SolidTex(Select));
+                FillRect(rect, selected ? _selRowTex : (i % 2 == 0 ? _rowTex : _rowAltTex));
+                if (selected) FillRect(new Rect(rect.x, rect.y, 4f, rect.height), _accentBarTex);
 
                 var titleRect = new Rect(rect.x + 14f, rect.y + 6f, rect.width - 28f, 26f);
                 var subRect   = new Rect(rect.x + 14f, rect.y + 32f, rect.width - 28f, 22f);
@@ -668,7 +678,7 @@ public sealed class LobbyPanel : MonoBehaviour
             var waitStyle = new GUIStyle(_labelStyle);
             waitStyle.alignment = TextAnchor.MiddleCenter;
             waitStyle.fontSize = 20;
-            waitStyle.normal.textColor = TextDim;
+            waitStyle.normal.textColor = PcbsTheme.TextDim;
             if (string.IsNullOrEmpty(_selectedSaveName))
             {
                 GUI.Label(new Rect(col2X, listY, col2W, listH), "Host is choosing a save…", waitStyle);
@@ -690,14 +700,14 @@ public sealed class LobbyPanel : MonoBehaviour
         // Error message strip (red) — errors take priority over info
         if (!string.IsNullOrEmpty(_errorMessage))
         {
-            var errSt = new GUIStyle(_labelStyle); errSt.normal.textColor = TextError; errSt.fontSize = 15;
-            FillRect(new Rect(x + 24f, footerY - 40f, winW - 48f, 30f), SolidTex(new Color(0.3f, 0.08f, 0.1f, 0.8f)));
+            var errSt = new GUIStyle(_labelStyle); errSt.normal.textColor = PcbsTheme.TextError; errSt.fontSize = 15;
+            FillRect(new Rect(x + 24f, footerY - 40f, winW - 48f, 30f), _errBgTex);
             GUI.Label(new Rect(x + 36f, footerY - 40f, winW - 72f, 30f), "⚠  " + _errorMessage, errSt);
         }
         else if (!string.IsNullOrEmpty(_infoMessage))
         {
-            var infoSt = new GUIStyle(_labelStyle); infoSt.normal.textColor = Accent; infoSt.fontSize = 15;
-            FillRect(new Rect(x + 24f, footerY - 40f, winW - 48f, 30f), SolidTex(new Color(0.08f, 0.14f, 0.26f, 0.8f)));
+            var infoSt = new GUIStyle(_labelStyle); infoSt.normal.textColor = PcbsTheme.Accent; infoSt.fontSize = 15;
+            FillRect(new Rect(x + 24f, footerY - 40f, winW - 48f, 30f), _infoBgTex);
             GUI.Label(new Rect(x + 36f, footerY - 40f, winW - 72f, 30f), "ℹ  " + _infoMessage, infoSt);
         }
 
@@ -735,14 +745,14 @@ public sealed class LobbyPanel : MonoBehaviour
             else
             {
                 FillRect(startRect, _btnDisTex);
-                var lblSt = new GUIStyle(_labelStyle); lblSt.alignment = TextAnchor.MiddleCenter; lblSt.normal.textColor = TextDim; lblSt.fontSize = 18; lblSt.fontStyle = FontStyle.Bold;
+                var lblSt = new GUIStyle(_labelStyle); lblSt.alignment = TextAnchor.MiddleCenter; lblSt.normal.textColor = PcbsTheme.TextDim; lblSt.fontSize = 18; lblSt.fontStyle = FontStyle.Bold;
                 GUI.Label(startRect, "Pick a save to start", lblSt);
             }
         }
         else
         {
             FillRect(startRect, _btnDisTex);
-            var lblSt = new GUIStyle(_labelStyle); lblSt.alignment = TextAnchor.MiddleCenter; lblSt.normal.textColor = TextDim; lblSt.fontSize = 18; lblSt.fontStyle = FontStyle.Bold;
+            var lblSt = new GUIStyle(_labelStyle); lblSt.alignment = TextAnchor.MiddleCenter; lblSt.normal.textColor = PcbsTheme.TextDim; lblSt.fontSize = 18; lblSt.fontStyle = FontStyle.Bold;
             GUI.Label(startRect, "Waiting for host…", lblSt);
         }
 

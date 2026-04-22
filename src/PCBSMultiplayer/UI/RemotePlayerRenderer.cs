@@ -124,6 +124,8 @@ public sealed class RemotePlayerRenderer : MonoBehaviour
             _nameStyle.fontStyle = FontStyle.Bold;
             _nameStyle.alignment = TextAnchor.MiddleCenter;
             _nameStyle.normal.textColor = Color.white;
+            var f = PcbsTheme.GetFont();
+            if (f != null) _nameStyle.font = f;
         }
 
         long now = NowMs();
