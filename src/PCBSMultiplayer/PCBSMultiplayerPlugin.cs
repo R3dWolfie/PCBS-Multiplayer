@@ -93,6 +93,7 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
             panic.Log = Logger;
 
             gameObject.AddComponent<Session.PlayerSnapshotBroadcaster>();
+            gameObject.AddComponent<UI.RemotePlayerRenderer>();
 
             UI.LobbyPanel.Log = Logger;
 
