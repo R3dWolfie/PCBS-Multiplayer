@@ -134,6 +134,16 @@ Host may have crashed mid-transfer.
 **Version mismatch between host and client**
 Both sides need the same mod version. Check `LogOutput.log` on both machines for the version string. Windows and Linux builds of the same mod version are compatible.
 
+### Seeing other players
+
+Once both players have loaded into the same scene, each remote player appears as a colored capsule with a floating nameplate showing their Steam name + avatar.
+
+- **Capsule colors** are per-slot: host = red, first client = blue, second = green, third = yellow.
+- **LOS dim**: capsule + nameplate dim when the player is behind a wall, so you can tell when they're in another room.
+- **Network**: presence broadcasts at 20 Hz over Steam P2P on channel 1 (unreliable). Bandwidth impact is negligible (~1.5 KB/s per peer).
+
+If you see "Player N" + a gray tile instead of a name + avatar, the peer's identity hasn't propagated yet — this is a known limitation of 0.4.0-alpha; it'll stabilize within a few seconds of the first TransformUpdate.
+
 ## Uninstalling
 
 From the PCBS install folder:

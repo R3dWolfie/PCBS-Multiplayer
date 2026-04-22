@@ -222,3 +222,12 @@ Facts captured to `docs/pcbs-recon.md` §"Plan 5: Player controller recon". Verd
 - Camera: `PlayerController.MainCamera` (public `Camera` property backed by `[SerializeField] private Camera m_camera`). No head-bob intermediary transform — camera is a direct child of the player root. Broadcast `PlayerController.transform.position` for capsule placement.
 - Eye-height: **TBD via live measurement** (source: no hardcoded constant in DLL — camera offset is prefab-serialized `Transform.localPosition`; measure via `MainCamera.transform.localPosition.y` in a Harmony postfix during P5-T2+).
 - Scene: multi-valued — `Workshop_V2` is the default plus DLC variants (`Workshop_DLC1_Starter/Office/TopTier`, `Workshop_DLC2_1/2/3`). Broadcaster gates on `WorkshopController.Get() != null` rather than a scene-name whitelist — the singleton only exists in workshop scenes, naturally excluding `Menu_V2` and `HowToBuildAPC_V2`.
+
+### 2026-04-22 — P5-T12 preview1 package
+
+- ModVersion bumped 0.3.0-alpha → 0.4.0-alpha on both HostSession and ClientSession.
+- CHANGELOG entry + install-linux/install-windows/INSTALL.txt updated.
+- Built Release DLL. Deployed to local PCBS install.
+- Packaged PCBSMultiplayer-0.4.0-alpha-preview1-{windows,linux}.zip from /tmp/pcbs-preview/.
+- No zip contents changed outside BepInEx/plugins/PCBSMultiplayer.dll + INSTALL.txt.
+- M5a in-game smoke (Step 5 of P5-T13) pending user execution.

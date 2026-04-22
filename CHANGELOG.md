@@ -2,6 +2,27 @@
 
 All notable changes to PCBS Multiplayer. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer with `-rc` tags for pre-release builds awaiting the closing manual gate.
 
+## 0.4.0-alpha-preview1
+
+### Added
+- **Presence: see other players.** Each remote player in the session renders as a colored capsule (red/blue/green/yellow by slot) with a floating nameplate showing their Steam display name + avatar above their head.
+- New wire message `TransformUpdate` (tag=10) carries `slot + pos + yaw + seq` at 20 Hz on Steam P2P channel 1 (unreliable).
+- Host relays client→client presence frames with an authoritative slot-rewrite (spoof guard).
+- Nameplate + capsule dim and desaturate when a raycast from the local camera is blocked (LOS rule), so you can tell when your friend is in the next room.
+- `SteamAvatarCache` fetches 64×64 Steam avatars on demand; renders a gray initials tile until the texture loads.
+
+### Changed
+- `ITransport` gains `SendUnreliable(byte[] payload, int channel)`. `SteamTransport.Pump` now polls channels 0 AND 1.
+- Protocol version bumped from `0.3.0-alpha` to `0.4.0-alpha`. Mixed-version lobbies are rejected at handshake (Bye{version_mismatch}).
+
+### Known limitations
+- No head-rotation (pitch) — yaw only.
+- No held-tool / hand rendering — deferred to 0.4.1.
+- No voice-chat indicator on nameplate.
+- Remote player identity (display name + avatar) stays placeholder ("Player N" + gray tile) for non-host peers until they send their first TransformUpdate; host's identity is always known.
+
+---
+
 ## [0.3.0-alpha] — 2026-04-22
 
 Plan 3 closing milestone. `preview15` passed the two-machine M4b playtest gate (host + friend on separate machines, money debits and job claims propagate bidirectionally, `BroadcastMoneyChanged` logs `recipients=1`, client's `CareerStatus.GetCash()` mirrors host after every spend). No code changes since `preview15` — this tag just promotes the last preview to the stable 0.3 alpha milestone and bumps `HostSession.ModVersion` / `ClientSession.ModVersion` from `"0.1.0"` (Plan 1 placeholder) to `"0.3.0-alpha"` so the lobby handshake's exact-match version check rejects older v0.2.x clients on sight.
