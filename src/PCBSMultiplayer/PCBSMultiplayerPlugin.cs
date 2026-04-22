@@ -27,6 +27,7 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
     private Harmony _harmony;
     private bool _steamInitialized;
     private Callback<P2PSessionRequest_t> _onP2PRequest;
+    private Callback<AvatarImageLoaded_t> _onAvatarLoaded;
 
     private void Awake()
     {
@@ -65,6 +66,12 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
             {
                 SteamNetworking.AcceptP2PSessionWithUser(ev.m_steamIDRemote);
                 Logger.LogInfo("P2P session auto-accepted from " + ev.m_steamIDRemote);
+            });
+
+            _onAvatarLoaded = Callback<AvatarImageLoaded_t>.Create(ev =>
+            {
+                Logger.LogInfo("AvatarImageLoaded: steam=" + ev.m_steamID.m_SteamID + " handle=" + ev.m_iImage);
+                Session.SteamAvatarCache.StoreFromHandle(ev.m_steamID.m_SteamID, ev.m_iImage);
             });
 
             _harmony = new Harmony(PluginGuid);
@@ -122,7 +129,11 @@ public sealed class PCBSMultiplayerPlugin : BaseUnityPlugin
 
     private void OnDestroy()
     {
-        if (_steamInitialized) SteamAPI.Shutdown();
+        if (_steamInitialized)
+        {
+            Session.SteamAvatarCache.Clear();
+            SteamAPI.Shutdown();
+        }
         _steamInitialized = false;
     }
 
