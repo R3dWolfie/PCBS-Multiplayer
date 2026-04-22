@@ -114,6 +114,9 @@ public sealed class ClientSession
         // Plan 3 transfers the whole save anyway, so Welcome snapshot is mostly a redundant
         // baseline — failing to apply it is not a reason to sit disconnected from sync.
         _mgr.LocalSlot = w.AssignedSlot;
+        // Register host (slot 0) so the client can render the host's capsule + nameplate
+        // once TransformUpdate frames arrive. Lobby-carried host identity is a Plan 6 item.
+        _mgr.RemoteRegistry.Register(slot: 0, steamId: 0UL, name: "Host");
         _mgr.IsLive = true;
         Log.LogInfo("OnWelcome: IsLive=true, slot=" + w.AssignedSlot + ", snapshot bytes=" + (w.SnapshotBytes == null ? 0 : w.SnapshotBytes.Length));
 

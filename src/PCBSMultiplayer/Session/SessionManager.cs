@@ -14,6 +14,7 @@ public sealed class SessionManager
 
     public SessionRole Role { get; }
     public WorldState World { get; } = new();
+    public State.RemotePlayerRegistry RemoteRegistry { get; } = new();
     public MessageRouter Router { get; } = new();
     public ITransport Transport { get; }
     public int LocalSlot { get; internal set; } = -1;

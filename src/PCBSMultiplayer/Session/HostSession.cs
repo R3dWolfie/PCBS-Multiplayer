@@ -90,6 +90,7 @@ public sealed class HostSession
             _slotByTransport[transport] = slot;
         }
 
+        _mgr.RemoteRegistry.Register(slot, hello.SteamId, hello.DisplayName);
         var snapshot = SnapshotBuilder.Serialize(_mgr.World);
         transport.Send(Serializer.Pack(new Welcome { AssignedSlot = slot, SnapshotBytes = snapshot }));
         var handler = ClientAccepted;
@@ -140,6 +141,7 @@ public sealed class HostSession
             _clients.Remove(slot);
             _transports.Remove(slot);
             _slotByTransport.Remove(transport);
+            _mgr.RemoteRegistry.Remove(slot);
             _inGrace.Remove(slot);
             BroadcastJobBoardDelta();
         });
